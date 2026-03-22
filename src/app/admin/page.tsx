@@ -26,6 +26,7 @@ export default function AdminPage() {
   useEffect(() => {
     checkUser();
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkUser = async () => {
@@ -148,7 +149,7 @@ export default function AdminPage() {
               </select>
 
               <select value={selectedAgeCategory} onChange={e => setSelectedAgeCategory(e.target.value)} required style={inputStyle}>
-                <option value="">-- Choisir Catégorie d'Âge --</option>
+                <option value="">-- Choisir Catégorie d&apos;Âge --</option>
                 {AGE_CATEGORIES.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
