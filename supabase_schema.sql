@@ -5,25 +5,18 @@
 -- 1. CREATION DES TABLES
 -- ==========================================
 
-CREATE TABLE disciplines (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name        TEXT NOT NULL,
-  coefficient NUMERIC NOT NULL,
-  created_at  TIMESTAMPTZ DEFAULT now()
-);
-
 CREATE TABLE participants (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   first_name  TEXT NOT NULL,
   last_name   TEXT NOT NULL,
-  category    TEXT NOT NULL,
+  category    TEXT NOT NULL, -- "H" | "F"
   created_at  TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE scores (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   participant_id  UUID REFERENCES participants(id) ON DELETE CASCADE,
-  discipline_id   UUID REFERENCES disciplines(id) ON DELETE CASCADE,
+  age_category    TEXT NOT NULL, -- ex: "U18", "M35", etc.
   value           NUMERIC NOT NULL,
   is_active       BOOLEAN DEFAULT true,
   recorded_at     TIMESTAMPTZ DEFAULT now()
@@ -56,21 +49,18 @@ INSERT INTO settings (id) VALUES (gen_random_uuid());
 -- 2. ROW LEVEL SECURITY (RLS)
 -- ==========================================
 
-ALTER TABLE disciplines ENABLE ROW LEVEL SECURITY;
 ALTER TABLE participants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sponsors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
 
 -- Politiques de lecture (Publique)
-CREATE POLICY "Lecture publique des disciplines" ON disciplines FOR SELECT USING (true);
 CREATE POLICY "Lecture publique des participants" ON participants FOR SELECT USING (true);
 CREATE POLICY "Lecture publique des scores" ON scores FOR SELECT USING (true);
 CREATE POLICY "Lecture publique des sponsors" ON sponsors FOR SELECT USING (true);
 CREATE POLICY "Lecture publique des paramètres" ON settings FOR SELECT USING (true);
 
 -- Politiques d'écriture (Accès réservé aux administrateurs authentifiés)
-CREATE POLICY "Modifications disciplines par admin" ON disciplines FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "Modifications participants par admin" ON participants FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "Modifications scores par admin" ON scores FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "Modifications sponsors par admin" ON sponsors FOR ALL USING (auth.role() = 'authenticated');

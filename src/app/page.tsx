@@ -12,9 +12,8 @@ export default function Home() {
       const { data } = await supabase
         .from("scores")
         .select(`
-          id, value, recorded_at,
-          participants (first_name, last_name, category),
-          disciplines (name)
+          id, value, recorded_at, age_category,
+          participants (first_name, last_name, category)
         `)
         .order("value", { ascending: false }) // On trie par les meilleures valeurs
         .limit(5);
@@ -184,7 +183,7 @@ export default function Home() {
                         {score.participants?.first_name} {score.participants?.last_name?.toUpperCase()}
                       </strong>
                       <span style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.5)" }}>
-                        {score.disciplines?.name}
+                        {score.age_category}
                       </span>
                     </div>
                   </div>

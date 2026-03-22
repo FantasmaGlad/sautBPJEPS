@@ -13,13 +13,15 @@ export default function AdminPage() {
   const [lastName, setLastName] = useState("");
   const [category, setCategory] = useState("H");
   const [participants, setParticipants] = useState<any[]>([]);
-  const [disciplines, setDisciplines] = useState<any[]>([]);
+  const [scoresHistory, setScoresHistory] = useState<any[]>([]);
   
   const [selectedParticipant, setSelectedParticipant] = useState("");
-  const [selectedDiscipline, setSelectedDiscipline] = useState("");
+  const [selectedAgeCategory, setSelectedAgeCategory] = useState("");
   const [scoreValue, setScoreValue] = useState("");
   
   const [statusMsg, setStatusMsg] = useState("");
+
+  const AGE_CATEGORIES = ["U18", "U23", "M35", "M40", "M45", "M50", "M55", "M60", "M65", "M70", "M75", "M80"];
 
   useEffect(() => {
     checkUser();
@@ -37,9 +39,12 @@ export default function AdminPage() {
 
   const fetchData = async () => {
     const { data: pData } = await supabase.from("participants").select("*").order("last_name");
-    const { data: dData } = await supabase.from("disciplines").select("*");
+    const { data: sData } = await supabase.from("scores")
+      .select("*, participants(first_name, last_name, category)")
+      .order("recorded_at", { ascending: false });
+
     if (pData) setParticipants(pData);
-    if (dData) setDisciplines(dData);
+    if (sData) setScoresHistory(sData);
   };
 
   const handleLogout = async () => {
@@ -66,11 +71,11 @@ export default function AdminPage() {
 
   const addScore = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedParticipant || !selectedDiscipline || !scoreValue) return;
+    if (!selectedParticipant || !selectedAgeCategory || !scoreValue) return;
 
     const { error } = await supabase.from("scores").insert([{
       participant_id: selectedParticipant,
-      discipline_id: selectedDiscipline,
+      age_category: selectedAgeCategory,
       value: parseFloat(scoreValue),
       is_active: true
     }]);
@@ -79,14 +84,27 @@ export default function AdminPage() {
     else {
       setStatusMsg("Score enregistré avec succès (il apparaitra sur la vue TV).");
       setScoreValue("");
+      fetchData(); // Rafraîchir l'historique
     }
     setTimeout(() => setStatusMsg(""), 4000);
+  };
+
+  const deleteScore = async (id: string) => {
+    const confirmDelete = window.confirm("Es-tu sûr de vouloir supprimer ce score ?");
+    if (!confirmDelete) return;
+
+    const { error } = await supabase.from("scores").delete().eq("id", id);
+    if (!error) {
+      setStatusMsg("Score supprimé !");
+      fetchData();
+      setTimeout(() => setStatusMsg(""), 4000);
+    }
   };
 
   if (loadingAuth) return <main style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", background: "#111827", color: "white" }}><p>Chargement du panel...</p></main>;
 
   return (
-    <main style={{ minHeight: "100vh", backgroundColor: "#0f172a", color: "e2e8f0", padding: "3rem 2rem", fontFamily: "sans-serif" }}>
+    <main style={{ minHeight: "100vh", backgroundColor: "#0f172a", color: "#e2e8f0", padding: "3rem 2rem", fontFamily: "sans-serif" }}>
       <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
         
         <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "3rem", borderBottom: "1px solid #334155", paddingBottom: "1rem" }}>
@@ -129,17 +147,63 @@ export default function AdminPage() {
                 ))}
               </select>
 
-              <select value={selectedDiscipline} onChange={e => setSelectedDiscipline(e.target.value)} required style={inputStyle}>
-                <option value="">-- Choisir Discipline --</option>
-                {disciplines.length === 0 && <option disabled>⚠️ Aucune discipline trouvée</option>}
-                {disciplines.map(d => (
-                  <option key={d.id} value={d.id}>{d.name} (Coeff {d.coefficient})</option>
+              <select value={selectedAgeCategory} onChange={e => setSelectedAgeCategory(e.target.value)} required style={inputStyle}>
+                <option value="">-- Choisir Catégorie d'Âge --</option>
+                {AGE_CATEGORIES.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
 
               <input type="number" step="0.01" placeholder="Valeur du saut/score (ex: 2.45)" value={scoreValue} onChange={e => setScoreValue(e.target.value)} required style={inputStyle} />
               <button type="submit" style={{...btnStyle, background: "#8b5cf6"}}>Valider et Diffuser le Score</button>
             </form>
+          </section>
+
+          {/* Bloc Historique (largeur totale) */}
+          <section style={{ gridColumn: "1 / -1", background: "#1e293b", padding: "2rem", borderRadius: "12px", border: "1px solid #334155", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.3)" }}>
+            <h2 style={{ fontSize: "1.2rem", marginBottom: "1.5rem", color: "white" }}>3. Historique des Sauts par Profil</h2>
+            
+            {scoresHistory.length === 0 ? (
+              <p style={{ color: "rgba(255,255,255,0.4)", fontStyle: "italic" }}>Aucun saut enregistré pour le moment.</p>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid #334155", color: "#94a3b8" }}>
+                      <th style={{ padding: "1rem" }}>Participant</th>
+                      <th style={{ padding: "1rem" }}>Cat. Sexe</th>
+                      <th style={{ padding: "1rem" }}>Cat. Âge</th>
+                      <th style={{ padding: "1rem" }}>Date & Heure</th>
+                      <th style={{ padding: "1rem" }}>Score</th>
+                      <th style={{ padding: "1rem", textAlign: "right" }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scoresHistory.map(score => (
+                      <tr key={score.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                        <td style={{ padding: "1rem", fontWeight: "bold" }}>
+                          {score.participants?.first_name} {score.participants?.last_name}
+                        </td>
+                        <td style={{ padding: "1rem" }}>{score.participants?.category}</td>
+                        <td style={{ padding: "1rem" }}>{score.age_category}</td>
+                        <td style={{ padding: "1rem", color: "#94a3b8", fontSize: "0.9rem" }}>
+                          {new Date(score.recorded_at).toLocaleString("fr-FR")}
+                        </td>
+                        <td style={{ padding: "1rem", color: "#8b5cf6", fontWeight: "bold" }}>{score.value}</td>
+                        <td style={{ padding: "1rem", textAlign: "right" }}>
+                          <button 
+                            onClick={() => deleteScore(score.id)}
+                            style={{ padding: "0.4rem 0.8rem", background: "rgba(239, 68, 68, 0.1)", color: "#ef4444", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: "4px", cursor: "pointer", fontSize: "0.85rem" }}
+                          >
+                            Supprimer
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
 
         </div>
