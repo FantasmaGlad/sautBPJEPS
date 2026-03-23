@@ -133,43 +133,91 @@ export default function Home() {
   };
 
   /* === Podium Cards === */
-  const PodiumCard = ({ score, rank, color, height }: { score: any; rank: number; color: string; height: string }) => {
+  const PodiumCard = ({ score, rank, themeRGB, height }: { score: any; rank: number; themeRGB: string; height: string }) => {
+    const depth = "2.5vw"; 
+    const zIndex = rank === 1 ? 10 : 5;
+    
+    // Extracted colors
+    const topColor = rank === 1 ? `rgba(${themeRGB}, 0.15)` : `rgba(${themeRGB}, 0.25)`;
+    const rightColor = rank === 1 ? `rgba(${themeRGB}, 0.3)` : `rgba(${themeRGB}, 0.45)`;
+    const frontColor = rank === 1 ? `#ffffff` : `rgba(255,255,255,0.9)`;
+
     return (
       <div style={{
-        display: "flex", flexDirection: "column", alignItems: "center", flex: 1,
-        margin: "0 0.5vw", height: "100%", justifyContent: "flex-end"
+        position: "relative",
+        width: "11vw",
+        height,
+        zIndex,
       }}>
-        <div style={{ marginBottom: "-3vh", zIndex: 10 }}>
+        {/* Avatar Area */}
+        <div style={{ 
+          position: "absolute",
+          top: "-7vw",
+          left: "0",
+          width: "100%",
+          display: "flex",
+          justifyContent: "center",
+          transform: `translateX(calc(${depth} / 2))`
+        }}>
           {score ? (
-            <Avatar name={score.participants?.first_name} gender={score.participants?.category} size={7} />
+            <Avatar name={score.participants?.first_name} gender={score.participants?.category} size={6} />
           ) : (
-            <div style={{ width: "7vw", height: "7vw", borderRadius: "50%", background: "rgba(0,0,0,0.05)", zIndex: 5, position: "relative" }} />
+            <div style={{ width: "6vw", height: "6vw", borderRadius: "50%", background: `rgba(${themeRGB},0.15)`, zIndex: 5 }} />
           )}
         </div>
-        <div style={{
-          background: color, width: "100%", height,
-          borderRadius: "2vh 2vh 0 0", display: "flex", flexDirection: "column",
-          alignItems: "center", paddingTop: "5vh", paddingBottom: "2vh",
-          boxShadow: "0 1vh 2vh rgba(0,0,0,0.05), inset 0 2px 0 rgba(255,255,255,0.7)",
-          border: "1px solid rgba(255,255,255,0.4)"
-        }}>
-          <span style={{ fontSize: "clamp(3rem, 5vw, 6.5rem)", fontWeight: 900, color: "rgba(0,0,0,0.15)", lineHeight: 1 }}>
-            #{rank}
-          </span>
-          {score && (
-            <>
-              <span style={{
-                fontSize: "clamp(2.4rem, 3.6vw, 5rem)", fontWeight: 800, color: "#1e293b",
-                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "95%", textAlign: "center",
-                lineHeight: 1.2, marginTop: "1vh"
-              }}>
-                {score.participants?.first_name}
-              </span>
-              <span style={{ fontSize: "clamp(2.8rem, 4vw, 6rem)", fontWeight: 900, color: "#475569", marginTop: "1vh" }}>
-                {score.value}
-              </span>
-            </>
-          )}
+
+        {/* 3D Container */}
+        <div style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: "100%" }}>
+          {/* Top Face */}
+          <div style={{
+            position: "absolute",
+            top: `-${depth}`,
+            left: 0,
+            width: "100%",
+            height: depth,
+            background: topColor,
+            transformOrigin: "bottom left",
+            transform: "skewX(-45deg)",
+          }} />
+
+          {/* Right Face */}
+          <div style={{
+            position: "absolute",
+            top: 0,
+            right: `-${depth}`,
+            width: depth,
+            height: "100%",
+            background: rightColor,
+            transformOrigin: "top left",
+            transform: "skewY(-45deg)",
+          }} />
+
+          {/* Front Face */}
+          <div style={{
+            position: "absolute",
+            top: 0, left: 0, width: "100%", height: "100%",
+            background: frontColor,
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+            boxShadow: "-1vh 1vh 2vh rgba(0,0,0,0.02)",
+          }}>
+            <span style={{ fontSize: "clamp(3rem, 5vw, 6.5rem)", fontWeight: 900, color: `rgba(${themeRGB},0.6)`, lineHeight: 1 }}>
+              #{rank}
+            </span>
+            {score && (
+              <>
+                <span style={{
+                  fontSize: "clamp(1.2rem, 1.8vw, 2.5rem)", fontWeight: 800, color: "#1e293b",
+                  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "90%", textAlign: "center",
+                  lineHeight: 1.2, marginTop: "1vh"
+                }}>
+                  {score.participants?.first_name}
+                </span>
+                <span style={{ fontSize: "clamp(1.4rem, 2.2vw, 3.5rem)", fontWeight: 900, color: "#475569", marginTop: "0.5vh" }}>
+                  {score.value}
+                </span>
+              </>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -200,12 +248,12 @@ export default function Home() {
         {/* Podium Area (Top 3) */}
         <div style={{
           display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%",
-          height: "45vh", marginBottom: "3vh",
+          height: "40vh", marginBottom: "5vh",
         }}>
-          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%", height: "100%" }}>
-            <PodiumCard score={top3[0]} rank={2} color="rgba(255,255,255,0.7)" height="65%" />
-            <PodiumCard score={top3[1]} rank={1} color="rgba(255,255,255,0.95)" height="85%" />
-            <PodiumCard score={top3[2]} rank={3} color="rgba(255,255,255,0.5)" height="45%" />
+          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%", height: "100%", paddingRight: "2.5vw" }}>
+            <PodiumCard score={top3[0]} rank={2} themeRGB={gender === "Homme" || gender === "H" ? "59,130,246" : "236,72,153"} height="55%" />
+            <PodiumCard score={top3[1]} rank={1} themeRGB={gender === "Homme" || gender === "H" ? "59,130,246" : "236,72,153"} height="75%" />
+            <PodiumCard score={top3[2]} rank={3} themeRGB={gender === "Homme" || gender === "H" ? "59,130,246" : "236,72,153"} height="40%" />
           </div>
         </div>
 
@@ -348,10 +396,10 @@ export default function Home() {
           </div>
 
           <a href="/admin" target="_blank" style={{
-            position: "absolute", bottom: "3vh", right: "3vw", padding: "1.5vh 1.5vw",
+            position: "absolute", top: "3vh", left: "3vw", padding: "1.5vh 1.5vw",
             background: "rgba(255,255,255,0.5)", color: "#1e293b", textDecoration: "none",
             borderRadius: "1vh", fontSize: "1vw", fontWeight: 700, backdropFilter: "blur(10px)",
-            border: "1px solid rgba(255,255,255,0.5)", transition: "all 0.2s z-index: 100",
+            border: "1px solid rgba(255,255,255,0.5)", transition: "all 0.2s", zIndex: 100,
           }}>
             Panel Admin
           </a>
