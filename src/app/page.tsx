@@ -27,15 +27,15 @@ const Avatar = ({ name, gender, size = "4vw" }: { name: string; gender: string; 
 
 /* ─── Podium Card ─── */
 const PodiumCard = ({ score, rank, isMale }: { score: any; rank: number; isMale: boolean }) => {
-  const heights: Record<number, string> = { 1: "26vh", 2: "20vh", 3: "16vh" }; // Taller podiums
-  const avatarSizes: Record<number, string> = { 1: "11vh", 2: "9vh", 3: "9vh" }; // Larger avatars
+  const heights: Record<number, string> = { 1: "28vh", 2: "22vh", 3: "18vh" }; // Taller podiums
+  const avatarSizes: Record<number, string> = { 1: "13vh", 2: "11vh", 3: "11vh" }; // Larger avatars
   const rankColor = isMale ? "#4a7fbd" : "#bd4a7f";
   const delay = rank === 1 ? "0s" : rank === 2 ? "0.5s" : "1s";
 
   if (!score) {
     return (
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
-        <div style={{ height: heights[rank], width: "100%", maxWidth: "15vw", background: "rgba(0,0,0,0.03)", borderRadius: "10px 10px 0 0" }} />
+        <div style={{ height: heights[rank], width: "100%", maxWidth: "16vw", background: "rgba(0,0,0,0.03)", borderRadius: "10px 10px 0 0" }} />
       </div>
     );
   }
@@ -48,7 +48,7 @@ const PodiumCard = ({ score, rank, isMale }: { score: any; rank: number; isMale:
     }}>
       <Avatar name={score.participants?.first_name || ""} gender={score.participants?.category || ""} size={avatarSizes[rank]} />
       <div style={{
-        width: "100%", maxWidth: "16vw", height: heights[rank], marginTop: "-1.5vh",
+        width: "100%", maxWidth: "18vw", height: heights[rank], marginTop: "-1.5vh",
         background: "rgba(255,255,255,0.95)", backdropFilter: "blur(10px)",
         borderRadius: "1vw 1vw 0.5vw 0.5vw",
         boxShadow: "0 1vh 3vh rgba(0,0,0,0.08)",
@@ -56,16 +56,16 @@ const PodiumCard = ({ score, rank, isMale }: { score: any; rank: number; isMale:
         transform: "perspective(800px) rotateX(2deg)", transformOrigin: "bottom center",
         border: "1px solid rgba(255,255,255,0.7)",
       }}>
-        {/* Even larger font sizes for the podium */}
-        <span style={{ fontSize: "clamp(2.5rem, 4vw, 5rem)", fontWeight: 900, color: rankColor, lineHeight: 1 }}>{rank}</span>
+        {/* +100% Font sizes */}
+        <span style={{ fontSize: "clamp(5rem, 8vw, 10rem)", fontWeight: 900, color: rankColor, lineHeight: 1 }}>{rank}</span>
         <span style={{
-          fontSize: "clamp(1.2rem, 1.8vw, 2.5rem)", fontWeight: 800, color: "#1e293b",
+          fontSize: "clamp(2.4rem, 3.6vw, 5rem)", fontWeight: 800, color: "#1e293b",
           whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "95%", textAlign: "center",
           lineHeight: 1.2, marginTop: "1vh"
         }}>
           {score.participants?.first_name} . {score.participants?.last_name?.charAt(0)}
         </span>
-        <span style={{ fontSize: "clamp(1.4rem, 2vw, 3rem)", fontWeight: 900, color: "#475569", marginTop: "1vh" }}>
+        <span style={{ fontSize: "clamp(2.8rem, 4vw, 6rem)", fontWeight: 900, color: "#475569", marginTop: "1vh" }}>
           {score.value}
         </span>
       </div>
@@ -100,13 +100,13 @@ const LeaderboardColumn = ({ title, data, isMale }: { title: string; data: any[]
       boxShadow: "0 1vh 4vh rgba(0,0,0,0.05)",
       height: "100%", /* Stretch to fill the grid */
     }}>
-      <h2 style={{ color: titleColor, fontSize: "clamp(1.8rem, 2.5vw, 3.5rem)", fontWeight: 800, fontStyle: "italic", margin: "0 0 2vh" }}>
+      <h2 style={{ color: titleColor, fontSize: "clamp(3.6rem, 5vw, 7rem)", fontWeight: 800, fontStyle: "italic", margin: "0 0 2vh" }}>
         {title}
       </h2>
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         {/* Podium */}
-        <div style={{ display: "flex", alignItems: "flex-end", gap: "1.5vw", marginBottom: "3vh", justifyContent: "center", minHeight: "33vh" }}>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: "2vw", marginBottom: "3vh", justifyContent: "center", minHeight: "35vh" }}>
           <PodiumCard rank={2} score={data[1]} isMale={isMale} />
           <PodiumCard rank={1} score={data[0]} isMale={isMale} />
           <PodiumCard rank={3} score={data[2]} isMale={isMale} />
@@ -123,7 +123,7 @@ const LeaderboardColumn = ({ title, data, isMale }: { title: string; data: any[]
           {/* Header */}
           <div style={{
             display: "flex", padding: "1.2vh 1.5vw",
-            fontWeight: 800, fontSize: "clamp(0.9rem, 1.2vw, 1.8rem)", color: "#64748b",
+            fontWeight: 800, fontSize: "clamp(1.8rem, 2.4vw, 3.6rem)", color: "#64748b",
             textTransform: "uppercase", letterSpacing: "0.08em",
             borderBottom: `max(1px, 0.1vw) solid ${borderTint}`,
           }}>
@@ -143,27 +143,27 @@ const LeaderboardColumn = ({ title, data, isMale }: { title: string; data: any[]
                   borderBottom: idx < 4 ? "1px solid rgba(0,0,0,0.04)" : "none",
                   background: idx % 2 === 0 ? "rgba(255,255,255,0.5)" : "transparent",
                 }}>
-                  <span style={{ width: "12%", fontWeight: 800, color: "#475569", fontSize: "clamp(1.2rem, 1.8vw, 2.5rem)" }}>
+                  <span style={{ width: "12%", fontWeight: 800, color: "#475569", fontSize: "clamp(2.4rem, 3.6vw, 5rem)" }}>
                     {rankNum}
                   </span>
                   <span style={{ flex: 1, display: "flex", alignItems: "center", gap: "1vw" }}>
-                    <Avatar name={score?.participants?.first_name || ""} gender={score?.participants?.category || ""} size="3.5vw" />
+                    <Avatar name={score?.participants?.first_name || ""} gender={score?.participants?.category || ""} size="4.5vw" />
                     
                     {score ? (
-                      <strong style={{ color: "#1e293b", fontSize: "clamp(1.1rem, 1.6vw, 2.4rem)", fontWeight: 800 }}>
+                      <strong style={{ color: "#1e293b", fontSize: "clamp(2.2rem, 3.2vw, 4.8rem)", fontWeight: 800 }}>
                         {score.participants?.first_name} . {score.participants?.last_name?.charAt(0)}
                       </strong>
                     ) : (
-                      <strong style={{ background: "rgba(0,0,0,0.03)", borderRadius: "6px", width: "40%", height: "clamp(1.1rem, 1.6vw, 2.4rem)" }} />
+                      <strong style={{ background: "rgba(0,0,0,0.03)", borderRadius: "6px", width: "40%", height: "clamp(2.2rem, 3.2vw, 4.8rem)" }} />
                     )}
                   </span>
                   
                   {score ? (
-                    <span style={{ width: "15%", textAlign: "right", fontWeight: 900, color: "#475569", fontSize: "clamp(1.3rem, 1.8vw, 2.8rem)" }}>
+                    <span style={{ width: "15%", textAlign: "right", fontWeight: 900, color: "#475569", fontSize: "clamp(2.6rem, 3.6vw, 5.6rem)" }}>
                       {score.value}
                     </span>
                   ) : (
-                    <span style={{ width: "15%", textAlign: "right", fontWeight: 900, color: "rgba(0,0,0,0.05)", fontSize: "clamp(1.3rem, 1.8vw, 2.8rem)" }}>
+                    <span style={{ width: "15%", textAlign: "right", fontWeight: 900, color: "rgba(0,0,0,0.05)", fontSize: "clamp(2.6rem, 3.6vw, 5.6rem)" }}>
                       -
                     </span>
                   )}
@@ -288,18 +288,21 @@ export default function Home() {
 
       {/* Header */}
       <header style={{
-        display: "flex", justifyContent: "space-between", alignItems: "center",
+        display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center",
         padding: "1.5vh 3vw", flexShrink: 0,
         position: "relative", zIndex: 10,
         borderBottom: "1px solid rgba(0,0,0,0.05)",
         background: "rgba(255,255,255,0.4)", backdropFilter: "blur(20px)",
       }}>
-        <h1 style={{ fontSize: "clamp(1.5rem, 2.2vw, 3rem)", fontWeight: 800, color: "#334155", margin: 0, letterSpacing: "-0.02em" }}>
+        <div /> {/* Empty spacer to balance the grid correctly */}
+        <h1 style={{ fontSize: "clamp(3rem, 4.4vw, 6rem)", fontWeight: 800, color: "#334155", margin: 0, letterSpacing: "-0.02em", textAlign: "center" }}>
           Classement Jump Contest
         </h1>
-        <span style={{ fontSize: "clamp(1.2rem, 1.8vw, 2.5rem)", color: "#94a3b8", fontWeight: 700 }}>
-          {dateStr}
-        </span>
+        <div style={{ textAlign: "right" }}>
+          <span style={{ fontSize: "clamp(2.4rem, 3.6vw, 5rem)", color: "#94a3b8", fontWeight: 700 }}>
+            {dateStr}
+          </span>
+        </div>
       </header>
 
       {/* Content — Fill the remaining space completely */}
@@ -315,7 +318,7 @@ export default function Home() {
 
       {/* Admin link */}
       <div style={{ position: "fixed", bottom: "1vh", right: "1vw", zIndex: 20 }}>
-        <Link href="/login" style={{ fontSize: "clamp(0.8rem, 1vw, 1.4rem)", color: "rgba(0,0,0,0.12)", textDecoration: "none" }}>
+        <Link href="/login" style={{ fontSize: "clamp(1.6rem, 2vw, 2.8rem)", color: "rgba(0,0,0,0.12)", textDecoration: "none" }}>
           Accès Panel
         </Link>
       </div>
