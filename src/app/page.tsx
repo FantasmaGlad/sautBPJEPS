@@ -137,7 +137,7 @@ export default function Home() {
     return (
       <div style={{
         display: "flex", flexDirection: "column", alignItems: "center", flex: 1,
-        margin: "0 0.5vw" // Reduced gap slightly to make them look like a connected stand
+        margin: "0 0.5vw", height: "100%", justifyContent: "flex-end"
       }}>
         <div style={{ marginBottom: "-3vh", zIndex: 10 }}>
           {score ? (
@@ -168,7 +168,6 @@ export default function Home() {
               <span style={{ fontSize: "clamp(2.8rem, 4vw, 6rem)", fontWeight: 900, color: "#475569", marginTop: "1vh" }}>
                 {score.value}
               </span>
-              <span style={{ fontSize: "clamp(1.4rem, 1.8vw, 2.5rem)", fontWeight: 700, color: "#94a3b8" }}>cm</span>
             </>
           )}
         </div>
@@ -180,9 +179,9 @@ export default function Home() {
   const LeaderboardColumn = ({ title, data, themeColor, gender }: { title: string; data: any[]; themeColor: string; gender: string }) => {
     const top3 = [data[1], data[0], data[2]]; // Order: 2, 1, 3
     
-    // Always create 5 slots for ranks 4 to 8
+    // Always create 2 slots for ranks 4 and 5
     const extendedList = [];
-    for (let i = 3; i < 8; i++) {
+    for (let i = 3; i < 5; i++) {
       extendedList.push(data[i] || null);
     }
 
@@ -210,12 +209,12 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Table Area (Ranks 4-8) */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "1.5vh" }}>
+        {/* Table Area (Ranks 4-5) */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
           <div style={{
             background: "rgba(255,255,255,0.5)", backdropFilter: "blur(10px)",
-            borderRadius: "2vh", padding: "2vh 3vw", border: "1px solid rgba(255,255,255,0.4)",
-            display: "flex", flexDirection: "column", gap: "1.5vh", height: "100%"
+            borderRadius: "2vh", padding: "1.5vh 3vw", border: "1px solid rgba(255,255,255,0.4)",
+            display: "flex", flexDirection: "column", gap: "1vh"
           }}>
             {/* Header Row */}
             <div style={{ display: "flex", color: "#64748b", fontSize: "clamp(1.4rem, 1.8vw, 2.5rem)", fontWeight: 800, borderBottom: "2px solid rgba(0,0,0,0.05)", paddingBottom: "1vh" }}>
@@ -224,11 +223,11 @@ export default function Home() {
               <div style={{ width: "20%", textAlign: "right" }}>SCORE</div>
             </div>
 
-            {/* Always 5 Rows */}
+            {/* Always 2 Rows */}
             {extendedList.map((score, idx) => (
               <div key={idx} style={{
                 display: "flex", alignItems: "center", padding: "1.5vh 0",
-                borderBottom: idx === 4 ? "none" : "1px solid rgba(0,0,0,0.03)",
+                borderBottom: idx === 1 ? "none" : "1px solid rgba(0,0,0,0.03)",
                 opacity: score ? 1 : 0.4
               }}>
                 <div style={{ width: "15%", textAlign: "center", color: "#94a3b8", fontWeight: 800, fontSize: "clamp(1.8rem, 2.4vw, 3.5rem)" }}>
