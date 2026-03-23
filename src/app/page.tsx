@@ -137,8 +137,7 @@ export default function Home() {
     return (
       <div style={{
         display: "flex", flexDirection: "column", alignItems: "center", flex: 1,
-        animation: `podiumFloat ${3 + rank * 0.5}s ease-in-out infinite`,
-        animationDelay: `${rank * 0.2}s`, margin: "0 1vw"
+        margin: "0 0.5vw" // Reduced gap slightly to make them look like a connected stand
       }}>
         <div style={{ marginBottom: "-3vh", zIndex: 10 }}>
           {score ? (
@@ -148,13 +147,13 @@ export default function Home() {
           )}
         </div>
         <div style={{
-          background: color, width: "100%", height, minHeight: "35vh",
+          background: color, width: "100%", height,
           borderRadius: "2vh 2vh 0 0", display: "flex", flexDirection: "column",
           alignItems: "center", paddingTop: "5vh", paddingBottom: "2vh",
-          boxShadow: "0 2vh 4vh rgba(0,0,0,0.1), inset 0 2px 0 rgba(255,255,255,0.5)",
-          border: "1px solid rgba(255,255,255,0.4)", transformStyle: "preserve-3d",
+          boxShadow: "0 1vh 2vh rgba(0,0,0,0.05), inset 0 2px 0 rgba(255,255,255,0.7)",
+          border: "1px solid rgba(255,255,255,0.4)"
         }}>
-          <span style={{ fontSize: "clamp(3rem, 5vw, 6.5rem)", fontWeight: 900, color: "rgba(0,0,0,0.2)", lineHeight: 1 }}>
+          <span style={{ fontSize: "clamp(3rem, 5vw, 6.5rem)", fontWeight: 900, color: "rgba(0,0,0,0.15)", lineHeight: 1 }}>
             #{rank}
           </span>
           {score && (
@@ -179,7 +178,7 @@ export default function Home() {
 
   /* === Left/Right Column Container === */
   const LeaderboardColumn = ({ title, data, themeColor, gender }: { title: string; data: any[]; themeColor: string; gender: string }) => {
-    const top3 = [data[0], data[1], data[2]]; // Order: 1, 2, 3
+    const top3 = [data[1], data[0], data[2]]; // Order: 2, 1, 3
     
     // Always create 5 slots for ranks 4 to 8
     const extendedList = [];
@@ -202,12 +201,12 @@ export default function Home() {
         {/* Podium Area (Top 3) */}
         <div style={{
           display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%",
-          height: "45vh", perspective: "800px", marginBottom: "3vh",
+          height: "45vh", marginBottom: "3vh",
         }}>
-          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%", height: "100%", transform: "rotateX(2deg)" }}>
-            <PodiumCard score={top3[0]} rank={1} color="rgba(255,255,255,0.95)" height="95%" />
-            <PodiumCard score={top3[1]} rank={2} color="rgba(255,255,255,0.7)" height="75%" />
-            <PodiumCard score={top3[2]} rank={3} color="rgba(255,255,255,0.5)" height="65%" />
+          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%", height: "100%" }}>
+            <PodiumCard score={top3[0]} rank={2} color="rgba(255,255,255,0.7)" height="65%" />
+            <PodiumCard score={top3[1]} rank={1} color="rgba(255,255,255,0.95)" height="85%" />
+            <PodiumCard score={top3[2]} rank={3} color="rgba(255,255,255,0.5)" height="45%" />
           </div>
         </div>
 
