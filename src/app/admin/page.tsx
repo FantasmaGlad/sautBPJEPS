@@ -122,7 +122,7 @@ export default function AdminPage() {
     const { error } = await supabase.from("scores").insert([{
       participant_id: selectedParticipant,
       age_category: selectedAgeCategory,
-      value: parseFloat(scoreValue),
+      value: parseInt(scoreValue, 10),
       is_active: true
     }]);
 
@@ -210,7 +210,7 @@ export default function AdminPage() {
                 ))}
               </select>
 
-              <input type="number" step="0.01" placeholder="Valeur du saut/score (ex: 2.45)" value={scoreValue} onChange={e => setScoreValue(e.target.value)} required style={inputStyle} />
+              <input type="number" step="1" placeholder="Valeur du saut en cm (ex: 245)" value={scoreValue} onChange={e => setScoreValue(e.target.value)} required style={inputStyle} />
               <button type="submit" style={{...btnStyle, background: "#8b5cf6"}}>Valider et Diffuser le Score</button>
             </form>
           </section>
@@ -312,7 +312,7 @@ export default function AdminPage() {
                         <td style={{ padding: "1rem", color: "#94a3b8", fontSize: "0.9rem" }}>
                           {new Date(score.recorded_at).toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' })}
                         </td>
-                        <td style={{ padding: "1rem", color: "#8b5cf6", fontWeight: "bold" }}>{score.value} M</td>
+                        <td style={{ padding: "1rem", color: "#8b5cf6", fontWeight: "bold" }}>{score.value} cm</td>
                         <td style={{ padding: "1rem", textAlign: "right" }}>
                           <button onClick={() => deleteScore(score.id)} style={{ padding: "0.4rem 0.8rem", background: "rgba(239, 68, 68, 0.1)", color: "#ef4444", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: "4px", cursor: "pointer", fontSize: "0.85rem" }}>
                             X

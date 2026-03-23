@@ -12,13 +12,21 @@ export default function Home() {
       const { data } = await supabase
         .from("scores")
         .select(`
-          id, value, recorded_at, age_category,
-          participants (first_name, last_name, category)
+          id, value, recorded_at, age_category, participant_id,
+          participants (id, first_name, last_name, category)
         `)
-        .order("value", { ascending: false }) // On trie par les meilleures valeurs
-        .limit(5);
+        .order("value", { ascending: false });
         
-      if (data) setScores(data);
+      if (data) {
+        const bestScoresMap = new Map();
+        for (const score of data) {
+          if (!bestScoresMap.has(score.participant_id)) {
+            bestScoresMap.set(score.participant_id, score);
+          }
+        }
+        const topScores = Array.from(bestScoresMap.values()).slice(0, 5);
+        setScores(topScores);
+      }
     };
 
     fetchScores();
@@ -188,7 +196,7 @@ export default function Home() {
                     </div>
                   </div>
                   <div style={{ fontSize: "1.8rem", fontWeight: "900", color: "#818cf8", textShadow: "0 2px 10px rgba(129, 140, 248, 0.3)" }}>
-                    {score.value}
+                    {score.value} cm
                   </div>
                 </li>
               ))}
