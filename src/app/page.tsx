@@ -63,7 +63,7 @@ const PodiumCard = ({ score, rank, isMale }: { score: any; rank: number; isMale:
           whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "95%", textAlign: "center",
           lineHeight: 1.2, marginTop: "1vh"
         }}>
-          {score.participants?.first_name} . {score.participants?.last_name?.charAt(0)}
+          {score.participants?.first_name}
         </span>
         <span style={{ fontSize: "clamp(2.8rem, 4vw, 6rem)", fontWeight: 900, color: "#475569", marginTop: "1vh" }}>
           {score.value}
@@ -151,7 +151,7 @@ const LeaderboardColumn = ({ title, data, isMale }: { title: string; data: any[]
                     
                     {score ? (
                       <strong style={{ color: "#1e293b", fontSize: "clamp(2.2rem, 3.2vw, 4.8rem)", fontWeight: 800 }}>
-                        {score.participants?.first_name} . {score.participants?.last_name?.charAt(0)}
+                        {score.participants?.first_name}
                       </strong>
                     ) : (
                       <strong style={{ background: "rgba(0,0,0,0.03)", borderRadius: "6px", width: "40%", height: "clamp(2.2rem, 3.2vw, 4.8rem)" }} />

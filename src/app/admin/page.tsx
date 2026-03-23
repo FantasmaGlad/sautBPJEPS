@@ -16,12 +16,12 @@ const cardStyle: React.CSSProperties = {
 };
 
 const inputStyle: React.CSSProperties = {
-  padding: "0.75rem 1rem",
+  padding: "0.85rem 1.25rem", // Increased padding for better hit-areas
   borderRadius: "10px",
   border: "1px solid #ddd",
   background: "rgba(255,255,255,0.9)",
   color: "#1e293b",
-  fontSize: "0.95rem",
+  fontSize: "1rem", // Increased font
   outline: "none",
   transition: "border-color 0.2s",
   width: "100%",
@@ -29,14 +29,14 @@ const inputStyle: React.CSSProperties = {
 };
 
 const btnPrimary: React.CSSProperties = {
-  padding: "0.75rem 1.5rem",
+  padding: "0.85rem 1.5rem", // Larger
   borderRadius: "10px",
   background: "linear-gradient(135deg, #4a90d9, #357abd)",
   color: "white",
   border: "none",
   cursor: "pointer",
   fontWeight: 700,
-  fontSize: "0.95rem",
+  fontSize: "1rem",
   transition: "transform 0.15s, box-shadow 0.15s",
   boxShadow: "0 4px 12px rgba(74,144,217,0.3)",
 };
@@ -48,25 +48,38 @@ const btnPurple: React.CSSProperties = {
 };
 
 const btnDanger: React.CSSProperties = {
-  padding: "0.4rem 0.8rem",
+  padding: "0.5rem 1rem",
   borderRadius: "8px",
   background: "rgba(239,68,68,0.08)",
   color: "#ef4444",
   border: "1px solid rgba(239,68,68,0.2)",
   cursor: "pointer",
-  fontSize: "0.8rem",
+  fontSize: "0.9rem",
   fontWeight: 600,
+  transition: "background 0.15s",
 };
 
 const btnEdit: React.CSSProperties = {
-  padding: "0.4rem 0.8rem",
+  padding: "0.5rem 1rem",
   borderRadius: "8px",
   background: "rgba(74,127,189,0.08)",
   color: "#4a7fbd",
   border: "1px solid rgba(74,127,189,0.2)",
   cursor: "pointer",
-  fontSize: "0.8rem",
+  fontSize: "0.9rem",
   fontWeight: 600,
+  marginRight: "0.5rem",
+};
+
+const btnSuccess: React.CSSProperties = {
+  padding: "0.5rem 1rem",
+  borderRadius: "8px",
+  background: "rgba(34,197,94,0.1)",
+  color: "#16a34a",
+  border: "1px solid rgba(34,197,94,0.3)",
+  cursor: "pointer",
+  fontSize: "0.9rem",
+  fontWeight: 700,
   marginRight: "0.5rem",
 };
 
@@ -102,11 +115,16 @@ export default function AdminPage() {
   const [participants, setParticipants] = useState<any[]>([]);
   const [scoresHistory, setScoresHistory] = useState<any[]>([]);
 
+  // We keep the old dropdown adding method for completeness, but it's less necessary now
   const [selectedParticipant, setSelectedParticipant] = useState("");
   const [scoreValue, setScoreValue] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [editingParticipant, setEditingParticipant] = useState<any>(null);
+  
+  // UX: Inline score addition state
+  const [inlineScoreParticipantId, setInlineScoreParticipantId] = useState<string | null>(null);
+  const [inlineScoreValue, setInlineScoreValue] = useState("");
 
   const [statusMsg, setStatusMsg] = useState("");
 
@@ -163,19 +181,40 @@ export default function AdminPage() {
     setTimeout(() => setStatusMsg(""), 4000);
   };
 
-  const addScore = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedParticipant || !scoreValue) return;
-    const { error } = await supabase.from("scores").insert([{ participant_id: selectedParticipant, value: parseInt(scoreValue, 10), is_active: true }]);
-    if (error) setStatusMsg(`Erreur: ${error.message}`);
-    else { setStatusMsg("Score diffusé en direct !"); setScoreValue(""); fetchData(); }
+  const submitScore = async (participantId: string, valStr: string) => {
+    if (!participantId || !valStr) return;
+    const val = parseInt(valStr, 10);
+    if (isNaN(val)) return;
+
+    const { error } = await supabase.from("scores").insert([{ participant_id: participantId, value: val, is_active: true }]);
+    if (error) {
+      setStatusMsg(`Erreur: ${error.message}`);
+    } else {
+      setStatusMsg("Saut enregistré avec succès !");
+      setScoreValue(""); // clear classic form
+      setInlineScoreValue(""); // clear inline form
+      setInlineScoreParticipantId(null); // hide inline form
+      fetchData();
+    }
     setTimeout(() => setStatusMsg(""), 4000);
   };
 
+  const addScoreFromClassicForm = (e: React.FormEvent) => {
+    e.preventDefault();
+    submitScore(selectedParticipant, scoreValue);
+  };
+
+  const addScoreFromInlineForm = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (inlineScoreParticipantId) {
+      submitScore(inlineScoreParticipantId, inlineScoreValue);
+    }
+  };
+
   const deleteScore = async (id: string) => {
-    if (!window.confirm("Supprimer ce score ?")) return;
+    if (!window.confirm("Supprimer ce saut ?")) return;
     const { error } = await supabase.from("scores").delete().eq("id", id);
-    if (!error) { setStatusMsg("Score supprimé."); fetchData(); }
+    if (!error) { setStatusMsg("Saut supprimé."); fetchData(); }
     setTimeout(() => setStatusMsg(""), 4000);
   };
 
@@ -223,19 +262,20 @@ export default function AdminPage() {
         borderBottom: "1px solid rgba(0,0,0,0.06)", background: "rgba(255,255,255,0.5)",
         backdropFilter: "blur(20px)",
       }}>
-        <h1 style={{ fontSize: "1.15rem", fontWeight: 700, color: "#334155", margin: 0 }}>
-          ⚙️ Dashboard Admin
+        {/* Emoji removed */}
+        <h1 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#334155", margin: 0 }}>
+          Dashboard Admin
         </h1>
         <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
           <button onClick={() => window.open("/", "_blank")} style={{
-            padding: "0.5rem 1rem", background: "rgba(74,127,189,0.1)", color: "#4a7fbd",
-            border: "1px solid rgba(74,127,189,0.2)", borderRadius: "8px", cursor: "pointer", fontWeight: 600, fontSize: "0.85rem",
+            padding: "0.6rem 1.2rem", background: "rgba(74,127,189,0.1)", color: "#4a7fbd",
+            border: "1px solid rgba(74,127,189,0.2)", borderRadius: "8px", cursor: "pointer", fontWeight: 700, fontSize: "0.95rem",
           }}>
-            📺 Vue TV
+            Vue Classique
           </button>
           <button onClick={handleLogout} style={{
-            padding: "0.5rem 1rem", background: "rgba(239,68,68,0.06)", color: "#ef4444",
-            border: "1px solid rgba(239,68,68,0.15)", borderRadius: "8px", cursor: "pointer", fontWeight: 600, fontSize: "0.85rem",
+            padding: "0.6rem 1.2rem", background: "rgba(239,68,68,0.06)", color: "#ef4444",
+            border: "1px solid rgba(239,68,68,0.15)", borderRadius: "8px", cursor: "pointer", fontWeight: 700, fontSize: "0.95rem",
           }}>
             Déconnexion
           </button>
@@ -243,31 +283,134 @@ export default function AdminPage() {
       </header>
 
       {/* Content */}
-      <div style={{ maxWidth: "1300px", margin: "0 auto", padding: "2rem 2.5rem", position: "relative", zIndex: 10 }}>
+      <div style={{ maxWidth: "1350px", margin: "0 auto", padding: "2rem 2.5rem", position: "relative", zIndex: 10 }}>
 
         {/* Status banner */}
         {statusMsg && (
           <div style={{
-            padding: "0.85rem 1.25rem", borderRadius: "12px", marginBottom: "1.5rem", fontWeight: 600, fontSize: "0.9rem",
-            background: "rgba(74,222,128,0.1)", border: "1px solid rgba(74,222,128,0.3)", color: "#16a34a",
-            animation: "fadeIn 0.3s ease",
+            padding: "1rem 1.5rem", borderRadius: "12px", marginBottom: "1.5rem", fontWeight: 700, fontSize: "1rem",
+            background: "rgba(74,222,128,0.15)", border: "1px solid rgba(74,222,128,0.4)", color: "#16a34a",
+            animation: "fadeIn 0.3s ease", display: "flex", alignItems: "center", gap: "10px"
           }}>
             ✓ {statusMsg}
           </div>
         )}
 
-        {/* ── Top Row: Add Participant + Add Score ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginBottom: "1.5rem" }}>
+        {/* ── Profiles Management (Moved to top for fastest UX) ── */}
+        <div style={{ ...cardStyle, marginBottom: "2rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.75rem" }}>
+            <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#1e293b", margin: 0 }}>
+              Gestion des Profils
+            </h2>
+            <input
+              type="text" placeholder="Rechercher par nom..."
+              value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+              style={{ ...inputStyle, width: "260px", padding: "0.7rem 1rem", fontSize: "1rem" }}
+            />
+          </div>
+
+          {/* Edit form */}
+          {editingParticipant && (
+            <form onSubmit={saveParticipantEdit} style={{
+              background: "rgba(74,127,189,0.06)", padding: "1.5rem", borderRadius: "12px",
+              border: "1px solid rgba(74,127,189,0.15)", display: "flex", flexWrap: "wrap", gap: "1rem",
+              alignItems: "center", marginBottom: "1.25rem",
+            }}>
+              <strong style={{ width: "100%", color: "#334155", fontSize: "1rem" }}>Modifier le profil</strong>
+              <input type="text" value={editingParticipant.first_name} onChange={e => setEditingParticipant({...editingParticipant, first_name: e.target.value})} required style={{...inputStyle, flex: 1, minWidth: "120px"}} />
+              <input type="text" value={editingParticipant.last_name} onChange={e => setEditingParticipant({...editingParticipant, last_name: e.target.value})} required style={{...inputStyle, flex: 1, minWidth: "120px"}} />
+              <select value={editingParticipant.category} onChange={e => setEditingParticipant({...editingParticipant, category: e.target.value})} style={{...inputStyle, width: "auto", flex: "0 0 auto"}}>
+                <option value="Homme">Homme</option>
+                <option value="Femme">Femme</option>
+              </select>
+              <select value={editingParticipant.age_category || 'U18'} onChange={e => setEditingParticipant({...editingParticipant, age_category: e.target.value})} style={{...inputStyle, width: "auto", flex: "0 0 auto"}}>
+                {AGE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <button type="submit" style={{...btnPrimary, padding: "0.7rem 1.25rem", fontSize: "0.95rem"}}>Sauvegarder</button>
+              <button type="button" onClick={() => setEditingParticipant(null)} style={{ padding: "0.7rem 1.25rem", background: "transparent", color: "#64748b", border: "none", cursor: "pointer", fontSize: "0.95rem", fontWeight: 600 }}>Annuler</button>
+            </form>
+          )}
+
+          {/* Participants table */}
+          {filteredParticipants.length === 0 ? (
+            <p style={{ color: "#94a3b8", fontStyle: "italic", textAlign: "center", padding: "2rem", fontSize: "1.1rem" }}>Aucun participant trouvé.</p>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 8px" }}>
+                <thead>
+                  <tr style={{ fontSize: "0.85rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 800 }}>
+                    <th style={{ padding: "0.75rem 1rem", textAlign: "left" }}>Athlète</th>
+                    <th style={{ padding: "0.75rem 1rem", textAlign: "left" }}>Catégorie</th>
+                    <th style={{ padding: "0.75rem 1rem", textAlign: "right" }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredParticipants.map((p, idx) => (
+                    <tr key={p.id} style={{ background: idx % 2 === 0 ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.4)", borderRadius: "10px", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+                      <td style={{ padding: "1rem", borderRadius: "10px 0 0 10px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+                          <Avatar name={p.first_name} gender={p.category} size={40} />
+                          <strong style={{ color: "#1e293b", fontSize: "1.05rem" }}>{p.last_name} {p.first_name}</strong>
+                        </div>
+                      </td>
+                      <td style={{ padding: "1rem" }}>
+                        <span style={{
+                          padding: "0.3rem 0.8rem", borderRadius: "100px", fontSize: "0.85rem", fontWeight: 700,
+                          background: (p.category === "Homme" || p.category === "H") ? "rgba(74,127,189,0.1)" : "rgba(189,74,127,0.1)",
+                          color: (p.category === "Homme" || p.category === "H") ? "#4a7fbd" : "#bd4a7f",
+                        }}>
+                          {p.category === 'H' ? 'Homme' : p.category === 'F' ? 'Femme' : p.category}
+                        </span>
+                        <span style={{ marginLeft: "0.75rem", fontSize: "0.9rem", color: "#64748b", fontWeight: 700 }}>
+                          {p.age_category || 'U18'}
+                        </span>
+                      </td>
+                      <td style={{ padding: "1rem", textAlign: "right", borderRadius: "0 10px 10px 0" }}>
+                        
+                        {/* Inline Score UX */}
+                        {inlineScoreParticipantId === p.id ? (
+                          <form onSubmit={addScoreFromInlineForm} style={{ display: "inline-flex", gap: "0.5rem", alignItems: "center" }}>
+                            <input 
+                              type="number" step="1" placeholder="Saut en cm" required 
+                              value={inlineScoreValue} onChange={e => setInlineScoreValue(e.target.value)}
+                              autoFocus
+                              style={{ ...inputStyle, padding: "0.5rem 0.8rem", width: "130px", fontSize: "0.95rem", margin: 0 }} 
+                            />
+                            <button type="submit" style={btnSuccess}>Valider</button>
+                            <button type="button" onClick={() => setInlineScoreParticipantId(null)} style={{ ...btnDanger, background: "transparent", border: "none" }}>Annuler</button>
+                          </form>
+                        ) : (
+                          <>
+                            {/* The magical Quick Score button */}
+                            <button onClick={() => { setInlineScoreParticipantId(p.id); setInlineScoreValue(""); }} style={{...btnSuccess, background: "rgba(139,92,246,0.1)", color: "#7c3aed", border: "1px solid rgba(139,92,246,0.3)"}}>
+                              + Saut
+                            </button>
+                            <button onClick={() => setEditingParticipant(p)} style={btnEdit}>Éditer</button>
+                            <button onClick={() => deleteParticipant(p.id, `${p.first_name} ${p.last_name}`)} style={btnDanger}>Suppr.</button>
+                          </>
+                        )}
+
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* ── Secondary Row: Add Participant & Add Score (Classic) ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginBottom: "2rem" }}>
 
           {/* Add Participant */}
           <div style={cardStyle}>
-            <h2 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#334155", margin: "0 0 1.25rem" }}>
-              <span style={{ marginRight: "0.5rem" }}>👤</span> Inscrire un Athlète
+            <h2 style={{ fontSize: "1.2rem", fontWeight: 800, color: "#1e293b", margin: "0 0 1.25rem" }}>
+              Nouvel Athlète
             </h2>
-            <form onSubmit={addParticipant} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <form onSubmit={addParticipant} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
               <input type="text" placeholder="Prénom" value={firstName} onChange={e => setFirstName(e.target.value)} required style={inputStyle} />
               <input type="text" placeholder="Nom" value={lastName} onChange={e => setLastName(e.target.value)} required style={inputStyle} />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                 <select value={category} onChange={e => setCategory(e.target.value)} style={inputStyle}>
                   <option value="Homme">Homme</option>
                   <option value="Femme">Femme</option>
@@ -280,12 +423,12 @@ export default function AdminPage() {
             </form>
           </div>
 
-          {/* Add Score */}
+          {/* Add Score Classic */}
           <div style={cardStyle}>
-            <h2 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#334155", margin: "0 0 1.25rem" }}>
-              <span style={{ marginRight: "0.5rem" }}>🏅</span> Saisir une Performance
+            <h2 style={{ fontSize: "1.2rem", fontWeight: 800, color: "#1e293b", margin: "0 0 1.25rem" }}>
+              Saisie Manuelle (Classique)
             </h2>
-            <form onSubmit={addScore} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <form onSubmit={addScoreFromClassicForm} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
               <select value={selectedParticipant} onChange={e => setSelectedParticipant(e.target.value)} required style={inputStyle}>
                 <option value="">— Choisir un athlète —</option>
                 {participants.map(p => (
@@ -293,104 +436,23 @@ export default function AdminPage() {
                 ))}
               </select>
               <input type="number" step="1" placeholder="Valeur en cm (ex: 245)" value={scoreValue} onChange={e => setScoreValue(e.target.value)} required style={inputStyle} />
-              <button type="submit" style={btnPurple}>Valider et Diffuser</button>
+              <button type="submit" style={btnPurple}>Valider le saut</button>
             </form>
           </div>
-        </div>
-
-        {/* ── Profiles Management ── */}
-        <div style={{ ...cardStyle, marginBottom: "1.5rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.75rem" }}>
-            <h2 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#334155", margin: 0 }}>
-              <span style={{ marginRight: "0.5rem" }}>📋</span> Gestion des Profils
-            </h2>
-            <input
-              type="text" placeholder="🔍 Rechercher..."
-              value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-              style={{ ...inputStyle, width: "220px", padding: "0.55rem 0.85rem", fontSize: "0.88rem" }}
-            />
-          </div>
-
-          {/* Edit form */}
-          {editingParticipant && (
-            <form onSubmit={saveParticipantEdit} style={{
-              background: "rgba(74,127,189,0.06)", padding: "1.25rem", borderRadius: "12px",
-              border: "1px solid rgba(74,127,189,0.15)", display: "flex", flexWrap: "wrap", gap: "0.75rem",
-              alignItems: "center", marginBottom: "1.25rem",
-            }}>
-              <strong style={{ width: "100%", color: "#334155", fontSize: "0.9rem" }}>✏️ Modifier le profil</strong>
-              <input type="text" value={editingParticipant.first_name} onChange={e => setEditingParticipant({...editingParticipant, first_name: e.target.value})} required style={{...inputStyle, flex: 1, minWidth: "120px"}} />
-              <input type="text" value={editingParticipant.last_name} onChange={e => setEditingParticipant({...editingParticipant, last_name: e.target.value})} required style={{...inputStyle, flex: 1, minWidth: "120px"}} />
-              <select value={editingParticipant.category} onChange={e => setEditingParticipant({...editingParticipant, category: e.target.value})} style={{...inputStyle, width: "auto", flex: "0 0 auto"}}>
-                <option value="Homme">Homme</option>
-                <option value="Femme">Femme</option>
-              </select>
-              <select value={editingParticipant.age_category || 'U18'} onChange={e => setEditingParticipant({...editingParticipant, age_category: e.target.value})} style={{...inputStyle, width: "auto", flex: "0 0 auto"}}>
-                {AGE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <button type="submit" style={{...btnPrimary, padding: "0.55rem 1rem", fontSize: "0.85rem"}}>Sauvegarder</button>
-              <button type="button" onClick={() => setEditingParticipant(null)} style={{ padding: "0.55rem 1rem", background: "transparent", color: "#94a3b8", border: "none", cursor: "pointer", fontSize: "0.85rem" }}>Annuler</button>
-            </form>
-          )}
-
-          {/* Participants table */}
-          {filteredParticipants.length === 0 ? (
-            <p style={{ color: "#94a3b8", fontStyle: "italic", textAlign: "center", padding: "2rem" }}>Aucun participant trouvé.</p>
-          ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 4px" }}>
-                <thead>
-                  <tr style={{ fontSize: "0.8rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    <th style={{ padding: "0.75rem 1rem", textAlign: "left" }}>Athlète</th>
-                    <th style={{ padding: "0.75rem 1rem", textAlign: "left" }}>Genre / Âge</th>
-                    <th style={{ padding: "0.75rem 1rem", textAlign: "right" }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredParticipants.map((p, idx) => (
-                    <tr key={p.id} style={{ background: idx % 2 === 0 ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.3)", borderRadius: "8px" }}>
-                      <td style={{ padding: "0.75rem 1rem", borderRadius: "8px 0 0 8px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
-                          <Avatar name={p.first_name} gender={p.category} size={32} />
-                          <strong style={{ color: "#1e293b" }}>{p.last_name} {p.first_name}</strong>
-                        </div>
-                      </td>
-                      <td style={{ padding: "0.75rem 1rem" }}>
-                        <span style={{
-                          padding: "0.2rem 0.6rem", borderRadius: "100px", fontSize: "0.8rem", fontWeight: 600,
-                          background: (p.category === "Homme" || p.category === "H") ? "rgba(74,127,189,0.1)" : "rgba(189,74,127,0.1)",
-                          color: (p.category === "Homme" || p.category === "H") ? "#4a7fbd" : "#bd4a7f",
-                        }}>
-                          {p.category === 'H' ? 'Homme' : p.category === 'F' ? 'Femme' : p.category}
-                        </span>
-                        <span style={{ marginLeft: "0.5rem", fontSize: "0.8rem", color: "#64748b", fontWeight: 600 }}>
-                          {p.age_category || 'U18'}
-                        </span>
-                      </td>
-                      <td style={{ padding: "0.75rem 1rem", textAlign: "right", borderRadius: "0 8px 8px 0" }}>
-                        <button onClick={() => setEditingParticipant(p)} style={btnEdit}>Éditer</button>
-                        <button onClick={() => deleteParticipant(p.id, `${p.first_name} ${p.last_name}`)} style={btnDanger}>Suppr.</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
 
         {/* ── Scores History ── */}
         <div style={cardStyle}>
-          <h2 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#334155", margin: "0 0 1.25rem" }}>
-            <span style={{ marginRight: "0.5rem" }}>📊</span> Historique des Sauts
+          <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#1e293b", margin: "0 0 1.25rem" }}>
+            Historique des Sauts
           </h2>
           {scoresHistory.length === 0 ? (
             <p style={{ color: "#94a3b8", fontStyle: "italic", textAlign: "center", padding: "2rem" }}>Aucun saut enregistré.</p>
           ) : (
             <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 4px" }}>
+              <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 6px" }}>
                 <thead>
-                  <tr style={{ fontSize: "0.8rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  <tr style={{ fontSize: "0.85rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 800 }}>
                     <th style={{ padding: "0.75rem 1rem", textAlign: "left" }}>Athlète</th>
                     <th style={{ padding: "0.75rem 1rem", textAlign: "left" }}>Heure</th>
                     <th style={{ padding: "0.75rem 1rem", textAlign: "left" }}>Score</th>
@@ -399,24 +461,24 @@ export default function AdminPage() {
                 </thead>
                 <tbody>
                   {scoresHistory.map((score, idx) => (
-                    <tr key={score.id} style={{ background: idx % 2 === 0 ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.3)" }}>
-                      <td style={{ padding: "0.75rem 1rem", borderRadius: "8px 0 0 8px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
-                          <Avatar name={score.participants?.first_name || ""} gender={score.participants?.category || ""} size={28} />
-                          <strong style={{ color: "#1e293b", fontSize: "0.9rem" }}>
+                    <tr key={score.id} style={{ background: idx % 2 === 0 ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.3)", borderRadius: "8px" }}>
+                      <td style={{ padding: "0.85rem 1rem", borderRadius: "8px 0 0 8px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+                          <Avatar name={score.participants?.first_name || ""} gender={score.participants?.category || ""} size={32} />
+                          <strong style={{ color: "#1e293b", fontSize: "0.95rem" }}>
                             {score.participants?.first_name} {score.participants?.last_name}
                           </strong>
                         </div>
                       </td>
-                      <td style={{ padding: "0.75rem 1rem", color: "#64748b", fontSize: "0.88rem" }}>
+                      <td style={{ padding: "0.85rem 1rem", color: "#64748b", fontSize: "0.9rem", fontWeight: 500 }}>
                         {new Date(score.recorded_at).toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' })}
                       </td>
-                      <td style={{ padding: "0.75rem 1rem" }}>
-                        <span style={{ fontWeight: 800, color: "#7c3aed", fontSize: "1rem" }}>{score.value}</span>
-                        <span style={{ color: "#94a3b8", fontSize: "0.8rem", marginLeft: "2px" }}>cm</span>
+                      <td style={{ padding: "0.85rem 1rem" }}>
+                        <span style={{ fontWeight: 800, color: "#7c3aed", fontSize: "1.1rem" }}>{score.value}</span>
+                        <span style={{ color: "#94a3b8", fontSize: "0.85rem", marginLeft: "4px", fontWeight: 600 }}>cm</span>
                       </td>
-                      <td style={{ padding: "0.75rem 1rem", textAlign: "right", borderRadius: "0 8px 8px 0" }}>
-                        <button onClick={() => deleteScore(score.id)} style={btnDanger}>✕</button>
+                      <td style={{ padding: "0.85rem 1rem", textAlign: "right", borderRadius: "0 8px 8px 0" }}>
+                        <button onClick={() => deleteScore(score.id)} style={{...btnDanger, padding: "0.4rem 0.8rem", fontSize: "0.8rem"}}>Supprimer</button>
                       </td>
                     </tr>
                   ))}
