@@ -148,9 +148,9 @@ export default function Home() {
           )}
         </div>
         <div style={{
-          background: color, width: "100%", height, minHeight: "25vh",
+          background: color, width: "100%", height, minHeight: "35vh",
           borderRadius: "2vh 2vh 0 0", display: "flex", flexDirection: "column",
-          alignItems: "center", paddingTop: "5vh",
+          alignItems: "center", paddingTop: "5vh", paddingBottom: "2vh",
           boxShadow: "0 2vh 4vh rgba(0,0,0,0.1), inset 0 2px 0 rgba(255,255,255,0.5)",
           border: "1px solid rgba(255,255,255,0.4)", transformStyle: "preserve-3d",
         }}>
@@ -193,7 +193,7 @@ export default function Home() {
         {/* Title */}
         <h2 style={{
           textAlign: "center", color: themeColor, fontSize: "clamp(2.5rem, 3.5vw, 5rem)",
-          fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em",
+          fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", fontStyle: "normal",
           marginBottom: "4vh", textShadow: "0 2px 10px rgba(0,0,0,0.05)"
         }}>
           {title}
@@ -201,13 +201,13 @@ export default function Home() {
 
         {/* Podium Area (Top 3) */}
         <div style={{
-          display: "flex", alignItems: "flex-end", justifyContent: "center",
+          display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%",
           height: "45vh", perspective: "800px", marginBottom: "3vh",
         }}>
-          <div style={{ display: "flex", alignItems: "flex-end", width: "100%", height: "100%", transform: "rotateX(2deg)" }}>
-            <PodiumCard score={top3[0]} rank={2} color="rgba(255,255,255,0.7)" height="65%" />
-            <PodiumCard score={top3[1]} rank={1} color="rgba(255,255,255,0.95)" height="85%" />
-            <PodiumCard score={top3[2]} rank={3} color="rgba(255,255,255,0.5)" height="50%" />
+          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%", height: "100%", transform: "rotateX(2deg)" }}>
+            <PodiumCard score={top3[0]} rank={2} color="rgba(255,255,255,0.7)" height="75%" />
+            <PodiumCard score={top3[1]} rank={1} color="rgba(255,255,255,0.95)" height="95%" />
+            <PodiumCard score={top3[2]} rank={3} color="rgba(255,255,255,0.5)" height="65%" />
           </div>
         </div>
 

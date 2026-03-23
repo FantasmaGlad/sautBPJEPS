@@ -119,10 +119,8 @@ export default function AdminPage() {
   const [participants, setParticipants] = useState<any[]>([]);
   const [scoresHistory, setScoresHistory] = useState<any[]>([]);
 
-  const [selectedParticipant, setSelectedParticipant] = useState("");
-  const [scoreValue, setScoreValue] = useState("");
-
   const [searchQuery, setSearchQuery] = useState("");
+  const [historySearchQuery, setHistorySearchQuery] = useState(""); // Add history search
   const [editingParticipant, setEditingParticipant] = useState<any>(null);
   
   const [inlineScoreParticipantId, setInlineScoreParticipantId] = useState<string | null>(null);
@@ -224,16 +222,10 @@ export default function AdminPage() {
       showStatus(`Erreur: ${error.message}`);
     } else {
       showStatus("Saut enregistré avec succès !");
-      setScoreValue(""); 
       setInlineScoreValue(""); 
       setInlineScoreParticipantId(null); 
       fetchData();
     }
-  };
-
-  const addScoreFromClassicForm = (e: React.FormEvent) => {
-    e.preventDefault();
-    submitScore(selectedParticipant, scoreValue);
   };
 
   const addScoreFromInlineForm = (e: React.FormEvent) => {
@@ -327,6 +319,10 @@ export default function AdminPage() {
 
   const filteredParticipants = participants.filter(p =>
     `${p.first_name} ${p.last_name}`.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredScoresHistory = scoresHistory.filter(s => 
+    `${s.participants?.first_name} ${s.participants?.last_name}`.toLowerCase().includes(historySearchQuery.toLowerCase())
   );
 
   if (loadingAuth) return (
@@ -535,17 +531,19 @@ export default function AdminPage() {
               )}
             </div>
 
-            {/* ── Secondary Row: Add Participant & Add Score (Classic) ── */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginBottom: "2rem" }}>
+            {/* ── Secondary Row: Add Participant ── */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1.5rem", marginBottom: "2rem" }}>
 
-              {/* Add Participant */}
+              {/* Add Participant - FULL WIDTH */}
               <div style={cardStyle}>
                 <h2 style={{ fontSize: "1.2rem", fontWeight: 800, color: "#1e293b", margin: "0 0 1.25rem" }}>
                   Nouvel Athlète
                 </h2>
                 <form onSubmit={addParticipant} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                  <input type="text" placeholder="Prénom" value={firstName} onChange={e => setFirstName(e.target.value)} required style={inputStyle} />
-                  <input type="text" placeholder="Nom" value={lastName} onChange={e => setLastName(e.target.value)} required style={inputStyle} />
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                    <input type="text" placeholder="Prénom" value={firstName} onChange={e => setFirstName(e.target.value)} required style={inputStyle} />
+                    <input type="text" placeholder="Nom" value={lastName} onChange={e => setLastName(e.target.value)} required style={inputStyle} />
+                  </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                     <select value={category} onChange={e => setCategory(e.target.value)} style={inputStyle}>
                       <option value="Homme">Homme</option>
@@ -558,31 +556,22 @@ export default function AdminPage() {
                   <button type="submit" style={btnPrimary}>Enregistrer</button>
                 </form>
               </div>
-
-              {/* Add Score Classic */}
-              <div style={cardStyle}>
-                <h2 style={{ fontSize: "1.2rem", fontWeight: 800, color: "#1e293b", margin: "0 0 1.25rem" }}>
-                  Saisie Manuelle (Classique)
-                </h2>
-                <form onSubmit={addScoreFromClassicForm} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                  <select value={selectedParticipant} onChange={e => setSelectedParticipant(e.target.value)} required style={inputStyle}>
-                    <option value="">— Choisir un athlète —</option>
-                    {participants.map(p => (
-                      <option key={p.id} value={p.id}>{p.last_name} {p.first_name} ({p.category} · {p.age_category || 'U18'})</option>
-                    ))}
-                  </select>
-                  <input type="number" step="1" placeholder="Valeur en cm (ex: 245)" value={scoreValue} onChange={e => setScoreValue(e.target.value)} required style={inputStyle} />
-                  <button type="submit" style={btnPurple}>Valider le saut</button>
-                </form>
-              </div>
             </div>
 
             {/* ── Scores History ── */}
             <div style={cardStyle}>
-              <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#1e293b", margin: "0 0 1.25rem" }}>
-                Historique des Sauts
-              </h2>
-              {scoresHistory.length === 0 ? (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.75rem" }}>
+                <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#1e293b", margin: 0 }}>
+                  Historique des Sauts
+                </h2>
+                <input
+                  type="text" placeholder="Rechercher par prénom..."
+                  value={historySearchQuery} onChange={e => setHistorySearchQuery(e.target.value)}
+                  style={{ ...inputStyle, width: "260px", padding: "0.7rem 1rem", fontSize: "1rem" }}
+                />
+              </div>
+              
+              {filteredScoresHistory.length === 0 ? (
                 <p style={{ color: "#94a3b8", fontStyle: "italic", textAlign: "center", padding: "2rem" }}>Aucun saut enregistré.</p>
               ) : (
                 <div style={{ overflowX: "auto" }}>
@@ -590,34 +579,39 @@ export default function AdminPage() {
                     <thead>
                       <tr style={{ fontSize: "0.85rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 800 }}>
                         <th style={{ padding: "0.75rem 1rem", textAlign: "left" }}>Athlète</th>
-                        <th style={{ padding: "0.75rem 1rem", textAlign: "left" }}>Heure</th>
+                        <th style={{ padding: "0.75rem 1rem", textAlign: "left" }}>Date & Heure</th>
                         <th style={{ padding: "0.75rem 1rem", textAlign: "left" }}>Score</th>
                         <th style={{ padding: "0.75rem 1rem", textAlign: "right" }}></th>
                       </tr>
                     </thead>
                     <tbody>
-                      {scoresHistory.map((score, idx) => (
-                        <tr key={score.id} style={{ background: idx % 2 === 0 ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.3)", borderRadius: "8px" }}>
-                          <td style={{ padding: "0.85rem 1rem", borderRadius: "8px 0 0 8px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
-                              <Avatar name={score.participants?.first_name || ""} gender={score.participants?.category || ""} size={32} />
-                              <strong style={{ color: "#1e293b", fontSize: "0.95rem" }}>
-                                {score.participants?.first_name} {score.participants?.last_name}
-                              </strong>
-                            </div>
-                          </td>
-                          <td style={{ padding: "0.85rem 1rem", color: "#64748b", fontSize: "0.9rem", fontWeight: 500 }}>
-                            {new Date(score.recorded_at).toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' })}
-                          </td>
-                          <td style={{ padding: "0.85rem 1rem" }}>
-                            <span style={{ fontWeight: 800, color: "#7c3aed", fontSize: "1.1rem" }}>{score.value}</span>
-                            <span style={{ color: "#94a3b8", fontSize: "0.85rem", marginLeft: "4px", fontWeight: 600 }}>cm</span>
-                          </td>
-                          <td style={{ padding: "0.85rem 1rem", textAlign: "right", borderRadius: "0 8px 8px 0" }}>
-                            <button onClick={() => deleteScore(score.id)} style={{...btnDanger, padding: "0.4rem 0.8rem", fontSize: "0.8rem"}}>Supprimer</button>
-                          </td>
-                        </tr>
-                      ))}
+                      {filteredScoresHistory.map((score, idx) => {
+                        const dateObj = new Date(score.recorded_at);
+                        const dateStr = dateObj.toLocaleDateString("fr-FR", { day: '2-digit', month: '2-digit' });
+                        const timeStr = dateObj.toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' });
+                        return (
+                          <tr key={score.id} style={{ background: idx % 2 === 0 ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.3)", borderRadius: "8px" }}>
+                            <td style={{ padding: "0.85rem 1rem", borderRadius: "8px 0 0 8px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+                                <Avatar name={score.participants?.first_name || ""} gender={score.participants?.category || ""} size={32} />
+                                <strong style={{ color: "#1e293b", fontSize: "0.95rem" }}>
+                                  {score.participants?.first_name} {score.participants?.last_name}
+                                </strong>
+                              </div>
+                            </td>
+                            <td style={{ padding: "0.85rem 1rem", color: "#64748b", fontSize: "0.9rem", fontWeight: 500 }}>
+                              {dateStr} à {timeStr}
+                            </td>
+                            <td style={{ padding: "0.85rem 1rem" }}>
+                              <span style={{ fontWeight: 800, color: "#7c3aed", fontSize: "1.1rem" }}>{score.value}</span>
+                              <span style={{ color: "#94a3b8", fontSize: "0.85rem", marginLeft: "4px", fontWeight: 600 }}>cm</span>
+                            </td>
+                            <td style={{ padding: "0.85rem 1rem", textAlign: "right", borderRadius: "0 8px 8px 0" }}>
+                              <button onClick={() => deleteScore(score.id)} style={{...btnDanger, padding: "0.4rem 0.8rem", fontSize: "0.8rem"}}>Supprimer</button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
