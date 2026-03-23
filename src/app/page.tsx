@@ -8,14 +8,17 @@ import { supabase } from "@/lib/supabase";
 const Avatar = ({ name, gender, size = "4vw" }: { name: string; gender: string; size?: string }) => {
   const letter = name?.charAt(0)?.toUpperCase() || "?";
   const isMale = gender === "Homme" || gender === "H";
+  const bg = !name
+    ? "rgba(0,0,0,0.05)" // Placeholder
+    : isMale ? "linear-gradient(135deg, #4a90d9, #357abd)" : "linear-gradient(135deg, #d94a8a, #bd357a)";
   return (
     <div style={{
       width: size, height: size, borderRadius: "50%",
-      background: isMale ? "linear-gradient(135deg, #4a90d9, #357abd)" : "linear-gradient(135deg, #d94a8a, #bd357a)",
-      border: `max(2px, 0.2vw) solid ${isMale ? "#5b9bd5" : "#d55b9b"}`,
+      background: bg,
+      border: `max(2px, 0.2vw) solid ${!name ? "transparent" : isMale ? "#5b9bd5" : "#d55b9b"}`,
       display: "flex", alignItems: "center", justifyContent: "center",
-      boxShadow: `0 4px 15px rgba(0,0,0,0.2), 0 0 20px ${isMale ? "rgba(74,144,217,0.25)" : "rgba(217,74,138,0.25)"}`,
-      color: "white", fontWeight: 800, fontSize: `calc(${size} * 0.45)`, flexShrink: 0,
+      boxShadow: !name ? "none" : `0 4px 15px rgba(0,0,0,0.2), 0 0 20px ${isMale ? "rgba(74,144,217,0.25)" : "rgba(217,74,138,0.25)"}`,
+      color: !name ? "transparent" : "white", fontWeight: 800, fontSize: `calc(${size} * 0.45)`, flexShrink: 0,
     }}>
       {letter}
     </div>
@@ -24,16 +27,15 @@ const Avatar = ({ name, gender, size = "4vw" }: { name: string; gender: string; 
 
 /* ─── Podium Card ─── */
 const PodiumCard = ({ score, rank, isMale }: { score: any; rank: number; isMale: boolean }) => {
-  // Height and sizing based heavily on viewport height/width to scale up endlessly on Giant TVs
-  const heights: Record<number, string> = { 1: "22vh", 2: "17vh", 3: "14vh" };
-  const avatarSizes: Record<number, string> = { 1: "9vh", 2: "7.5vh", 3: "7.5vh" };
+  const heights: Record<number, string> = { 1: "26vh", 2: "20vh", 3: "16vh" }; // Taller podiums
+  const avatarSizes: Record<number, string> = { 1: "11vh", 2: "9vh", 3: "9vh" }; // Larger avatars
   const rankColor = isMale ? "#4a7fbd" : "#bd4a7f";
   const delay = rank === 1 ? "0s" : rank === 2 ? "0.5s" : "1s";
 
   if (!score) {
     return (
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
-        <div style={{ height: heights[rank], width: "100%", maxWidth: "12vw", background: "rgba(0,0,0,0.03)", borderRadius: "10px 10px 0 0" }} />
+        <div style={{ height: heights[rank], width: "100%", maxWidth: "15vw", background: "rgba(0,0,0,0.03)", borderRadius: "10px 10px 0 0" }} />
       </div>
     );
   }
@@ -46,23 +48,24 @@ const PodiumCard = ({ score, rank, isMale }: { score: any; rank: number; isMale:
     }}>
       <Avatar name={score.participants?.first_name || ""} gender={score.participants?.category || ""} size={avatarSizes[rank]} />
       <div style={{
-        width: "100%", maxWidth: "13vw", height: heights[rank], marginTop: "-1.5vh",
-        background: "rgba(255,255,255,0.92)", backdropFilter: "blur(10px)",
+        width: "100%", maxWidth: "16vw", height: heights[rank], marginTop: "-1.5vh",
+        background: "rgba(255,255,255,0.95)", backdropFilter: "blur(10px)",
         borderRadius: "1vw 1vw 0.5vw 0.5vw",
         boxShadow: "0 1vh 3vh rgba(0,0,0,0.08)",
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0.5vh",
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "1vh",
         transform: "perspective(800px) rotateX(2deg)", transformOrigin: "bottom center",
         border: "1px solid rgba(255,255,255,0.7)",
       }}>
-        <span style={{ fontSize: "clamp(1.5rem, 2.8vw, 4rem)", fontWeight: 900, color: rankColor, lineHeight: 1.1 }}>{rank}</span>
+        {/* Even larger font sizes for the podium */}
+        <span style={{ fontSize: "clamp(2.5rem, 4vw, 5rem)", fontWeight: 900, color: rankColor, lineHeight: 1 }}>{rank}</span>
         <span style={{
-          fontSize: "clamp(0.8rem, 1.3vw, 2rem)", fontWeight: 700, color: "#1e293b",
-          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "90%", textAlign: "center",
-          lineHeight: 1.2, marginTop: "0.5vh"
+          fontSize: "clamp(1.2rem, 1.8vw, 2.5rem)", fontWeight: 800, color: "#1e293b",
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "95%", textAlign: "center",
+          lineHeight: 1.2, marginTop: "1vh"
         }}>
           {score.participants?.first_name} . {score.participants?.last_name?.charAt(0)}
         </span>
-        <span style={{ fontSize: "clamp(1rem, 1.4vw, 2.5rem)", fontWeight: 800, color: "#475569", marginTop: "0.5vh" }}>
+        <span style={{ fontSize: "clamp(1.4rem, 2vw, 3rem)", fontWeight: 900, color: "#475569", marginTop: "1vh" }}>
           {score.value}
         </span>
       </div>
@@ -78,6 +81,17 @@ const LeaderboardColumn = ({ title, data, isMale }: { title: string; data: any[]
   const titleColor = isMale ? "#4a7fbd" : "#bd4a7f";
   const borderTint = isMale ? "rgba(74,127,189,0.15)" : "rgba(189,74,127,0.15)";
 
+  // Prepare 5 slots for ranks 4-8. Fill missing slots with null.
+  const ranks4to8 = [];
+  for (let i = 0; i < 5; i++) {
+    const scoreIdx = i + 3; // data[3] = rank 4
+    if (data[scoreIdx]) {
+      ranks4to8.push(data[scoreIdx]);
+    } else {
+      ranks4to8.push(null);
+    }
+  }
+
   return (
     <div style={{
       flex: 1, background: bgTint, borderRadius: "2vw", padding: "2vw 2.5vw",
@@ -86,76 +100,79 @@ const LeaderboardColumn = ({ title, data, isMale }: { title: string; data: any[]
       boxShadow: "0 1vh 4vh rgba(0,0,0,0.05)",
       height: "100%", /* Stretch to fill the grid */
     }}>
-      <h2 style={{ color: titleColor, fontSize: "clamp(1.2rem, 1.8vw, 3rem)", fontWeight: 700, fontStyle: "italic", margin: "0 0 2vh" }}>
+      <h2 style={{ color: titleColor, fontSize: "clamp(1.8rem, 2.5vw, 3.5rem)", fontWeight: 800, fontStyle: "italic", margin: "0 0 2vh" }}>
         {title}
       </h2>
 
-      {data.length === 0 ? (
-        <p style={{ color: "#94a3b8", fontStyle: "italic", textAlign: "center", marginTop: "5vh", fontSize: "1.5vw" }}>
-          Aucune performance enregistrée...
-        </p>
-      ) : (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-          {/* Podium */}
-          <div style={{ display: "flex", alignItems: "flex-end", gap: "1vw", marginBottom: "3vh", justifyContent: "center", minHeight: "33vh" }}>
-            <PodiumCard rank={2} score={data[1]} isMale={isMale} />
-            <PodiumCard rank={1} score={data[0]} isMale={isMale} />
-            <PodiumCard rank={3} score={data[2]} isMale={isMale} />
+      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        {/* Podium */}
+        <div style={{ display: "flex", alignItems: "flex-end", gap: "1.5vw", marginBottom: "3vh", justifyContent: "center", minHeight: "33vh" }}>
+          <PodiumCard rank={2} score={data[1]} isMale={isMale} />
+          <PodiumCard rank={1} score={data[0]} isMale={isMale} />
+          <PodiumCard rank={3} score={data[2]} isMale={isMale} />
+        </div>
+
+        {/* Ranks 4-8 Card */ /* Using flex: 1 to make the list stretch nicely downward */}
+        <div style={{
+          background: "rgba(255,255,255,0.85)", borderRadius: "1.2vw",
+          overflow: "hidden", boxShadow: "0 0.5vh 2vh rgba(0,0,0,0.05)",
+          border: "1px solid rgba(255,255,255,0.8)",
+          display: "flex", flexDirection: "column",
+          flex: 1,
+        }}>
+          {/* Header */}
+          <div style={{
+            display: "flex", padding: "1.2vh 1.5vw",
+            fontWeight: 800, fontSize: "clamp(0.9rem, 1.2vw, 1.8rem)", color: "#64748b",
+            textTransform: "uppercase", letterSpacing: "0.08em",
+            borderBottom: `max(1px, 0.1vw) solid ${borderTint}`,
+          }}>
+            <span style={{ width: "12%" }}>Rang</span>
+            <span style={{ flex: 1 }}>Athlete</span>
+            <span style={{ width: "15%", textAlign: "right" }}>Points</span>
           </div>
 
-          {/* Ranks 4-8 Card */ /* Using flex: 1 to make the list stretch nicely downward */}
-          <div style={{
-            background: "rgba(255,255,255,0.85)", borderRadius: "1.2vw",
-            overflow: "hidden", boxShadow: "0 0.5vh 2vh rgba(0,0,0,0.05)",
-            border: "1px solid rgba(255,255,255,0.8)",
-            display: "flex", flexDirection: "column",
-            flex: 1,
-          }}>
-            {/* Header */}
-            <div style={{
-              display: "flex", padding: "1.2vh 1.5vw",
-              fontWeight: 700, fontSize: "clamp(0.75rem, 1vw, 1.5rem)", color: "#64748b",
-              textTransform: "uppercase", letterSpacing: "0.08em",
-              borderBottom: `max(1px, 0.1vw) solid ${borderTint}`,
-            }}>
-              <span style={{ width: "12%" }}>Rank</span>
-              <span style={{ flex: 1 }}>Athlete</span>
-              <span style={{ width: "15%", textAlign: "right" }}>Points</span>
-            </div>
-
-            {data.length > 3 ? (
-              <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-                {data.slice(3, 8).map((score, idx) => (
-                  <div key={score.id} style={{
-                    display: "flex", alignItems: "center",
-                    flex: 1, /* Stretch to divide space equally */
-                    padding: "0.5vh 1.5vw",
-                    borderBottom: idx < Math.min(data.length - 4, 4) ? "1px solid rgba(0,0,0,0.04)" : "none",
-                    background: idx % 2 === 0 ? "rgba(255,255,255,0.5)" : "transparent",
-                  }}>
-                    <span style={{ width: "12%", fontWeight: 700, color: "#475569", fontSize: "clamp(1rem, 1.4vw, 2.5rem)" }}>
-                      {idx + 4}
-                    </span>
-                    <span style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.8vw" }}>
-                      <Avatar name={score.participants?.first_name || ""} gender={score.participants?.category || ""} size="3vw" />
-                      <strong style={{ color: "#1e293b", fontSize: "clamp(0.9rem, 1.3vw, 2.2rem)" }}>
+          <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+            {ranks4to8.map((score, idx) => {
+              const rankNum = idx + 4;
+              return (
+                <div key={score ? score.id : `empty-${idx}`} style={{
+                  display: "flex", alignItems: "center",
+                  flex: 1, /* Stretch to divide space equally */
+                  padding: "0.5vh 1.5vw",
+                  borderBottom: idx < 4 ? "1px solid rgba(0,0,0,0.04)" : "none",
+                  background: idx % 2 === 0 ? "rgba(255,255,255,0.5)" : "transparent",
+                }}>
+                  <span style={{ width: "12%", fontWeight: 800, color: "#475569", fontSize: "clamp(1.2rem, 1.8vw, 2.5rem)" }}>
+                    {rankNum}
+                  </span>
+                  <span style={{ flex: 1, display: "flex", alignItems: "center", gap: "1vw" }}>
+                    <Avatar name={score?.participants?.first_name || ""} gender={score?.participants?.category || ""} size="3.5vw" />
+                    
+                    {score ? (
+                      <strong style={{ color: "#1e293b", fontSize: "clamp(1.1rem, 1.6vw, 2.4rem)", fontWeight: 800 }}>
                         {score.participants?.first_name} . {score.participants?.last_name?.charAt(0)}
                       </strong>
-                    </span>
-                    <span style={{ width: "15%", textAlign: "right", fontWeight: 800, color: "#475569", fontSize: "clamp(1rem, 1.5vw, 2.8rem)" }}>
+                    ) : (
+                      <strong style={{ background: "rgba(0,0,0,0.03)", borderRadius: "6px", width: "40%", height: "clamp(1.1rem, 1.6vw, 2.4rem)" }} />
+                    )}
+                  </span>
+                  
+                  {score ? (
+                    <span style={{ width: "15%", textAlign: "right", fontWeight: 900, color: "#475569", fontSize: "clamp(1.3rem, 1.8vw, 2.8rem)" }}>
                       {score.value}
                     </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "2vh", color: "#94a3b8", fontSize: "clamp(0.85rem, 1.2vw, 2rem)", fontStyle: "italic" }}>
-                En attente des places 4 à 8...
-              </div>
-            )}
+                  ) : (
+                    <span style={{ width: "15%", textAlign: "right", fontWeight: 900, color: "rgba(0,0,0,0.05)", fontSize: "clamp(1.3rem, 1.8vw, 2.8rem)" }}>
+                      -
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };
@@ -277,10 +294,10 @@ export default function Home() {
         borderBottom: "1px solid rgba(0,0,0,0.05)",
         background: "rgba(255,255,255,0.4)", backdropFilter: "blur(20px)",
       }}>
-        <h1 style={{ fontSize: "clamp(1.2rem, 1.8vw, 2.5rem)", fontWeight: 800, color: "#334155", margin: 0, letterSpacing: "-0.02em" }}>
+        <h1 style={{ fontSize: "clamp(1.5rem, 2.2vw, 3rem)", fontWeight: 800, color: "#334155", margin: 0, letterSpacing: "-0.02em" }}>
           Classement Jump Contest
         </h1>
-        <span style={{ fontSize: "clamp(1rem, 1.4vw, 2rem)", color: "#94a3b8", fontWeight: 600 }}>
+        <span style={{ fontSize: "clamp(1.2rem, 1.8vw, 2.5rem)", color: "#94a3b8", fontWeight: 700 }}>
           {dateStr}
         </span>
       </header>
@@ -298,7 +315,7 @@ export default function Home() {
 
       {/* Admin link */}
       <div style={{ position: "fixed", bottom: "1vh", right: "1vw", zIndex: 20 }}>
-        <Link href="/login" style={{ fontSize: "clamp(0.65rem, 0.8vw, 1.2rem)", color: "rgba(0,0,0,0.12)", textDecoration: "none" }}>
+        <Link href="/login" style={{ fontSize: "clamp(0.8rem, 1vw, 1.4rem)", color: "rgba(0,0,0,0.12)", textDecoration: "none" }}>
           Accès Panel
         </Link>
       </div>
