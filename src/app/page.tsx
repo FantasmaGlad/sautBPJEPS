@@ -1,154 +1,243 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Head from "next/head";
 import { supabase } from "@/lib/supabase";
 
-/* ─── Avatar (initials) ─── */
-const Avatar = ({ name, gender, size = "4vw" }: { name: string; gender: string; size?: string }) => {
-  const letter = name?.charAt(0)?.toUpperCase() || "?";
-  const isMale = gender === "Homme" || gender === "H";
-  const bg = !name
-    ? "rgba(0,0,0,0.05)" // Placeholder
-    : isMale ? "linear-gradient(135deg, #4a90d9, #357abd)" : "linear-gradient(135deg, #d94a8a, #bd357a)";
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: "50%",
-      background: bg,
-      border: `max(2px, 0.2vw) solid ${!name ? "transparent" : isMale ? "#5b9bd5" : "#d55b9b"}`,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      boxShadow: !name ? "none" : `0 4px 15px rgba(0,0,0,0.2), 0 0 20px ${isMale ? "rgba(74,144,217,0.25)" : "rgba(217,74,138,0.25)"}`,
-      color: !name ? "transparent" : "white", fontWeight: 800, fontSize: `calc(${size} * 0.45)`, flexShrink: 0,
-    }}>
-      {letter}
-    </div>
-  );
-};
+export default function Home() {
+  const [participants, setParticipants] = useState<any[]>([]);
+  const [scores, setScores] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-/* ─── Podium Card ─── */
-const PodiumCard = ({ score, rank, isMale }: { score: any; rank: number; isMale: boolean }) => {
-  const heights: Record<number, string> = { 1: "28vh", 2: "22vh", 3: "18vh" }; // Taller podiums
-  const avatarSizes: Record<number, string> = { 1: "13vh", 2: "11vh", 3: "11vh" }; // Larger avatars
-  const rankColor = isMale ? "#4a7fbd" : "#bd4a7f";
-  const delay = rank === 1 ? "0s" : rank === 2 ? "0.5s" : "1s";
+  // === SPONSOR CAROUSEL STATE ===
+  const [sponsors, setSponsors] = useState<any[]>([]);
+  const [globalSettings, setGlobalSettings] = useState<any>(null);
+  
+  // Timer state
+  const [displayMode, setDisplayMode] = useState<'leaderboard' | 'carousel'>('leaderboard');
+  const [currentSponsorIndex, setCurrentSponsorIndex] = useState<number>(0);
+  const [isSponsorVisible, setIsSponsorVisible] = useState(false);
 
-  if (!score) {
+  useEffect(() => {
+    fetchData();
+    fetchSponsorsAndSettings();
+
+    const channel = supabase
+      .channel("public-db-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "participants" }, fetchData)
+      .on("postgres_changes", { event: "*", schema: "public", table: "scores" }, fetchData)
+      .on("postgres_changes", { event: "*", schema: "public", table: "sponsors" }, fetchSponsorsAndSettings)
+      .on("postgres_changes", { event: "*", schema: "public", table: "settings" }, fetchSponsorsAndSettings)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const fetchData = async () => {
+    const [pRes, sRes] = await Promise.all([
+      supabase.from("participants").select("*"),
+      supabase.from("scores").select("*, participants(*)").eq("is_active", true),
+    ]);
+    if (pRes.data) setParticipants(pRes.data);
+    if (sRes.data) setScores(sRes.data);
+    setLoading(false);
+  };
+
+  const fetchSponsorsAndSettings = async () => {
+    const [spRes, setRes] = await Promise.all([
+      supabase.from("sponsors").select("*").eq("is_active", true).order("display_order", { ascending: true }),
+      supabase.from("settings").select("*").limit(1).single()
+    ]);
+    if (spRes.data) setSponsors(spRes.data);
+    if (setRes.data) setGlobalSettings(setRes.data);
+  };
+
+  // === CAROUSEL TIMER ENGINE ===
+  useEffect(() => {
+    if (sponsors.length === 0 || !globalSettings) return;
+    
+    // Convert to milliseconds
+    const leaderboardDurationMs = (globalSettings.carousel_interval_min || 3) * 60 * 1000;
+    const breakDelayMs = (globalSettings.carousel_duration_sec || 1) * 1000;
+    
+    if (displayMode === 'leaderboard') {
+      const t = setTimeout(() => {
+         setDisplayMode('carousel');
+         setCurrentSponsorIndex(0);
+         setIsSponsorVisible(true);
+      }, leaderboardDurationMs);
+      return () => clearTimeout(t);
+    }
+    
+    if (displayMode === 'carousel') {
+      if (!isSponsorVisible) {
+        // We are in the "delay between sponsors" (black screen transition)
+        const t = setTimeout(() => {
+           const nextIdx = currentSponsorIndex + 1;
+           if (nextIdx >= sponsors.length) {
+              setDisplayMode('leaderboard');
+           } else {
+              setCurrentSponsorIndex(nextIdx);
+              setIsSponsorVisible(true);
+           }
+        }, breakDelayMs);
+        return () => clearTimeout(t);
+      } else {
+        // Sponsor is currently visible
+        const sponsor = sponsors[currentSponsorIndex];
+        const sponsorDurationMs = (sponsor?.duration_sec || 5) * 1000;
+        const t = setTimeout(() => {
+           setIsSponsorVisible(false); // Hide image, triggering breakDelayMs next
+        }, sponsorDurationMs);
+        return () => clearTimeout(t);
+      }
+    }
+  }, [displayMode, isSponsorVisible, currentSponsorIndex, sponsors, globalSettings]);
+
+
+  const getBestScoresByGender = (gender: string) => {
+    const bestScores: { [key: string]: any } = {};
+    const genderScores = scores.filter((s) => s.participants?.category === gender || s.participants?.category === (gender === 'Homme' ? 'H' : 'F'));
+
+    genderScores.forEach((score) => {
+      const pid = score.participant_id;
+      if (!bestScores[pid] || score.value > bestScores[pid].value) {
+        bestScores[pid] = score;
+      }
+    });
+
+    return Object.values(bestScores).sort((a: any, b: any) => b.value - a.value);
+  };
+
+  const topHommes = getBestScoresByGender("Homme");
+  const topFemmes = getBestScoresByGender("Femme");
+
+  /* === Avatars === */
+  const Avatar = ({ name, gender, size = 6, showLetter = true }: { name?: string; gender: string; size?: number; showLetter?: boolean }) => {
+    const isMale = gender === "Homme" || gender === "H";
+    const letter = name && name.length > 0 ? name.charAt(0).toUpperCase() : "";
     return (
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
-        <div style={{ height: heights[rank], width: "100%", maxWidth: "16vw", background: "rgba(0,0,0,0.03)", borderRadius: "10px 10px 0 0" }} />
+      <div style={{
+        width: `${size}vw`, height: `${size}vw`, borderRadius: "50%",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: isMale ? "linear-gradient(135deg, #3b82f6, #2563eb)" : "linear-gradient(135deg, #ec4899, #db2777)",
+        color: "white", fontWeight: 900, fontSize: `${size * 0.45}vw`,
+        boxShadow: `0 1vh 2vh ${isMale ? "rgba(59,130,246,0.5)" : "rgba(236,72,153,0.5)"}`,
+        zIndex: 5, flexShrink: 0
+      }}>
+        {showLetter ? letter : ""}
       </div>
     );
-  }
+  };
 
-  return (
-    <div style={{
-      flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end",
-      zIndex: rank === 1 ? 5 : 1,
-      animation: `podiumFloat 4s ease-in-out ${delay} infinite`,
-    }}>
-      <Avatar name={score.participants?.first_name || ""} gender={score.participants?.category || ""} size={avatarSizes[rank]} />
+  /* === Podium Cards === */
+  const PodiumCard = ({ score, rank, color, height }: { score: any; rank: number; color: string; height: string }) => {
+    return (
       <div style={{
-        width: "100%", maxWidth: "18vw", height: heights[rank], marginTop: "-1.5vh",
-        background: "rgba(255,255,255,0.95)", backdropFilter: "blur(10px)",
-        borderRadius: "1vw 1vw 0.5vw 0.5vw",
-        boxShadow: "0 1vh 3vh rgba(0,0,0,0.08)",
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "1vh",
-        transform: "perspective(800px) rotateX(2deg)", transformOrigin: "bottom center",
-        border: "1px solid rgba(255,255,255,0.7)",
+        display: "flex", flexDirection: "column", alignItems: "center", flex: 1,
+        animation: `podiumFloat ${3 + rank * 0.5}s ease-in-out infinite`,
+        animationDelay: `${rank * 0.2}s`, margin: "0 1vw"
       }}>
-        {/* +100% Font sizes */}
-        <span style={{ fontSize: "clamp(5rem, 8vw, 10rem)", fontWeight: 900, color: rankColor, lineHeight: 1 }}>{rank}</span>
-        <span style={{
-          fontSize: "clamp(2.4rem, 3.6vw, 5rem)", fontWeight: 800, color: "#1e293b",
-          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "95%", textAlign: "center",
-          lineHeight: 1.2, marginTop: "1vh"
+        <div style={{ marginBottom: "-3vh", zIndex: 10 }}>
+          {score ? (
+            <Avatar name={score.participants?.first_name} gender={score.participants?.category} size={7} />
+          ) : (
+            <div style={{ width: "7vw", height: "7vw", borderRadius: "50%", background: "rgba(0,0,0,0.05)", zIndex: 5, position: "relative" }} />
+          )}
+        </div>
+        <div style={{
+          background: color, width: "100%", height, minHeight: "25vh",
+          borderRadius: "2vh 2vh 0 0", display: "flex", flexDirection: "column",
+          alignItems: "center", paddingTop: "5vh",
+          boxShadow: "0 2vh 4vh rgba(0,0,0,0.1), inset 0 2px 0 rgba(255,255,255,0.5)",
+          border: "1px solid rgba(255,255,255,0.4)", transformStyle: "preserve-3d",
         }}>
-          {score.participants?.first_name}
-        </span>
-        <span style={{ fontSize: "clamp(2.8rem, 4vw, 6rem)", fontWeight: 900, color: "#475569", marginTop: "1vh" }}>
-          {score.value}
-        </span>
+          <span style={{ fontSize: "clamp(3rem, 5vw, 6.5rem)", fontWeight: 900, color: "rgba(0,0,0,0.2)", lineHeight: 1 }}>
+            #{rank}
+          </span>
+          {score && (
+            <>
+              <span style={{
+                fontSize: "clamp(2.4rem, 3.6vw, 5rem)", fontWeight: 800, color: "#1e293b",
+                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "95%", textAlign: "center",
+                lineHeight: 1.2, marginTop: "1vh"
+              }}>
+                {score.participants?.first_name}
+              </span>
+              <span style={{ fontSize: "clamp(2.8rem, 4vw, 6rem)", fontWeight: 900, color: "#475569", marginTop: "1vh" }}>
+                {score.value}
+              </span>
+              <span style={{ fontSize: "clamp(1.4rem, 1.8vw, 2.5rem)", fontWeight: 700, color: "#94a3b8" }}>cm</span>
+            </>
+          )}
+        </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
-/* ─── Leaderboard Column ─── */
-const LeaderboardColumn = ({ title, data, isMale }: { title: string; data: any[]; isMale: boolean }) => {
-  const bgTint = isMale
-    ? "linear-gradient(180deg, rgba(215,228,248,0.7) 0%, rgba(230,238,252,0.4) 100%)"
-    : "linear-gradient(180deg, rgba(248,215,230,0.7) 0%, rgba(252,230,240,0.4) 100%)";
-  const titleColor = isMale ? "#4a7fbd" : "#bd4a7f";
-  const borderTint = isMale ? "rgba(74,127,189,0.15)" : "rgba(189,74,127,0.15)";
-
-  // Prepare 5 slots for ranks 4-8. Fill missing slots with null.
-  const ranks4to8 = [];
-  for (let i = 0; i < 5; i++) {
-    const scoreIdx = i + 3; // data[3] = rank 4
-    if (data[scoreIdx]) {
-      ranks4to8.push(data[scoreIdx]);
-    } else {
-      ranks4to8.push(null);
+  /* === Left/Right Column Container === */
+  const LeaderboardColumn = ({ title, data, themeColor, gender }: { title: string; data: any[]; themeColor: string; gender: string }) => {
+    const top3 = [data[1], data[0], data[2]]; // Order: 2, 1, 3
+    
+    // Always create 5 slots for ranks 4 to 8
+    const extendedList = [];
+    for (let i = 3; i < 8; i++) {
+      extendedList.push(data[i] || null);
     }
-  }
 
-  return (
-    <div style={{
-      flex: 1, background: bgTint, borderRadius: "2vw", padding: "2vw 2.5vw",
-      display: "flex", flexDirection: "column",
-      backdropFilter: "blur(12px)", border: `max(1px, 0.1vw) solid ${borderTint}`,
-      boxShadow: "0 1vh 4vh rgba(0,0,0,0.05)",
-      height: "100%", /* Stretch to fill the grid */
-    }}>
-      <h2 style={{ color: titleColor, fontSize: "clamp(3.6rem, 5vw, 7rem)", fontWeight: 800, fontStyle: "italic", margin: "0 0 2vh" }}>
-        {title}
-      </h2>
+    return (
+      <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "0 2vw" }}>
+        
+        {/* Title */}
+        <h2 style={{
+          textAlign: "center", color: themeColor, fontSize: "clamp(2.5rem, 3.5vw, 5rem)",
+          fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em",
+          marginBottom: "4vh", textShadow: "0 2px 10px rgba(0,0,0,0.05)"
+        }}>
+          {title}
+        </h2>
 
-      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        {/* Podium */}
-        <div style={{ display: "flex", alignItems: "flex-end", gap: "2vw", marginBottom: "3vh", justifyContent: "center", minHeight: "35vh" }}>
-          <PodiumCard rank={2} score={data[1]} isMale={isMale} />
-          <PodiumCard rank={1} score={data[0]} isMale={isMale} />
-          <PodiumCard rank={3} score={data[2]} isMale={isMale} />
+        {/* Podium Area (Top 3) */}
+        <div style={{
+          display: "flex", alignItems: "flex-end", justifyContent: "center",
+          height: "45vh", perspective: "800px", marginBottom: "3vh",
+        }}>
+          <div style={{ display: "flex", alignItems: "flex-end", width: "100%", height: "100%", transform: "rotateX(2deg)" }}>
+            <PodiumCard score={top3[0]} rank={2} color="rgba(255,255,255,0.7)" height="65%" />
+            <PodiumCard score={top3[1]} rank={1} color="rgba(255,255,255,0.95)" height="85%" />
+            <PodiumCard score={top3[2]} rank={3} color="rgba(255,255,255,0.5)" height="50%" />
+          </div>
         </div>
 
-        {/* Ranks 4-8 Card */ /* Using flex: 1 to make the list stretch nicely downward */}
-        <div style={{
-          background: "rgba(255,255,255,0.85)", borderRadius: "1.2vw",
-          overflow: "hidden", boxShadow: "0 0.5vh 2vh rgba(0,0,0,0.05)",
-          border: "1px solid rgba(255,255,255,0.8)",
-          display: "flex", flexDirection: "column",
-          flex: 1,
-        }}>
-          {/* Header */}
+        {/* Table Area (Ranks 4-8) */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "1.5vh" }}>
           <div style={{
-            display: "flex", padding: "1.2vh 1.5vw",
-            fontWeight: 800, fontSize: "clamp(1.8rem, 2.4vw, 3.6rem)", color: "#64748b",
-            textTransform: "uppercase", letterSpacing: "0.08em",
-            borderBottom: `max(1px, 0.1vw) solid ${borderTint}`,
+            background: "rgba(255,255,255,0.5)", backdropFilter: "blur(10px)",
+            borderRadius: "2vh", padding: "2vh 3vw", border: "1px solid rgba(255,255,255,0.4)",
+            display: "flex", flexDirection: "column", gap: "1.5vh", height: "100%"
           }}>
-            <span style={{ width: "12%" }}>Rang</span>
-            <span style={{ flex: 1 }}>Athlete</span>
-            <span style={{ width: "15%", textAlign: "right" }}>Points</span>
-          </div>
+            {/* Header Row */}
+            <div style={{ display: "flex", color: "#64748b", fontSize: "clamp(1.4rem, 1.8vw, 2.5rem)", fontWeight: 800, borderBottom: "2px solid rgba(0,0,0,0.05)", paddingBottom: "1vh" }}>
+              <div style={{ width: "15%", textAlign: "center" }}>RANG</div>
+              <div style={{ flex: 1 }}>ATHLÈTE</div>
+              <div style={{ width: "20%", textAlign: "right" }}>SCORE</div>
+            </div>
 
-          <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-            {ranks4to8.map((score, idx) => {
-              const rankNum = idx + 4;
-              return (
-                <div key={score ? score.id : `empty-${idx}`} style={{
-                  display: "flex", alignItems: "center",
-                  flex: 1, /* Stretch to divide space equally */
-                  padding: "0.5vh 1.5vw",
-                  borderBottom: idx < 4 ? "1px solid rgba(0,0,0,0.04)" : "none",
-                  background: idx % 2 === 0 ? "rgba(255,255,255,0.5)" : "transparent",
-                }}>
-                  <span style={{ width: "12%", fontWeight: 800, color: "#475569", fontSize: "clamp(2.4rem, 3.6vw, 5rem)" }}>
-                    {rankNum}
-                  </span>
-                  <span style={{ flex: 1, display: "flex", alignItems: "center", gap: "1vw" }}>
-                    <Avatar name={score?.participants?.first_name || ""} gender={score?.participants?.category || ""} size="4.5vw" />
-                    
+            {/* Always 5 Rows */}
+            {extendedList.map((score, idx) => (
+              <div key={idx} style={{
+                display: "flex", alignItems: "center", padding: "1.5vh 0",
+                borderBottom: idx === 4 ? "none" : "1px solid rgba(0,0,0,0.03)",
+                opacity: score ? 1 : 0.4
+              }}>
+                <div style={{ width: "15%", textAlign: "center", color: "#94a3b8", fontWeight: 800, fontSize: "clamp(1.8rem, 2.4vw, 3.5rem)" }}>
+                  {idx + 4}
+                </div>
+                <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "2vw" }}>
+                  <Avatar name={score?.participants?.first_name} gender={gender} size={4} showLetter={!!score} />
+                  <div style={{ display: "flex", flexDirection: "column" }}>
                     {score ? (
                       <strong style={{ color: "#1e293b", fontSize: "clamp(2.2rem, 3.2vw, 4.8rem)", fontWeight: 800 }}>
                         {score.participants?.first_name}
@@ -156,215 +245,136 @@ const LeaderboardColumn = ({ title, data, isMale }: { title: string; data: any[]
                     ) : (
                       <strong style={{ background: "rgba(0,0,0,0.03)", borderRadius: "6px", width: "40%", height: "clamp(2.2rem, 3.2vw, 4.8rem)" }} />
                     )}
-                  </span>
-                  
-                  {score ? (
-                    <span style={{ width: "15%", textAlign: "right", fontWeight: 900, color: "#475569", fontSize: "clamp(2.6rem, 3.6vw, 5.6rem)" }}>
-                      {score.value}
-                    </span>
-                  ) : (
-                    <span style={{ width: "15%", textAlign: "right", fontWeight: 900, color: "rgba(0,0,0,0.05)", fontSize: "clamp(2.6rem, 3.6vw, 5.6rem)" }}>
-                      -
-                    </span>
-                  )}
+                  </div>
                 </div>
-              );
-            })}
+                <div style={{ width: "20%", textAlign: "right", color: "#475569", fontWeight: 900, fontSize: "clamp(2.2rem, 3.2vw, 4.8rem)" }}>
+                  {score ? score.value : "—"}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
+    );
+  };
+
+  if (loading) return (
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", background: "#f8fafc" }}>
+      <h1 style={{ color: "#64748b", fontSize: "2vw", fontWeight: 700, animation: "pulse 1.5s infinite" }}>Chargement...</h1>
+      <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
     </div>
   );
-};
-
-/* ─── Dense Dynamic Background ─── */
-const GeometricBackground = () => {
-  const shapes = [
-    // Large orbs
-    { type: "circle", top: "3%", left: "6%", size: "10vw", color: "rgba(74,144,217,0.08)", dur: "13s", delay: "0s" },
-    { type: "circle", top: "55%", left: "88%", size: "12vw", color: "rgba(217,74,138,0.07)", dur: "17s", delay: "1s" },
-    { type: "circle", top: "35%", left: "48%", size: "15vw", color: "rgba(130,130,200,0.04)", dur: "21s", delay: "2.5s" },
-    { type: "circle", top: "80%", left: "30%", size: "8vw", color: "rgba(100,200,180,0.06)", dur: "15s", delay: "0.5s" },
-    // Triangles
-    { type: "triangle", top: "8%", left: "72%", size: "6vw", color: "rgba(139,92,246,0.09)", dur: "11s", delay: "0.3s" },
-    { type: "triangle", top: "70%", left: "12%", size: "5.5vw", color: "rgba(74,127,189,0.08)", dur: "14s", delay: "1.8s" },
-    { type: "triangle", top: "28%", left: "94%", size: "5vw", color: "rgba(200,130,160,0.07)", dur: "18s", delay: "3.5s" },
-    { type: "triangle", top: "88%", left: "58%", size: "5.5vw", color: "rgba(100,180,220,0.07)", dur: "13s", delay: "1.2s" },
-    { type: "triangle", top: "50%", left: "3%", size: "4.5vw", color: "rgba(200,160,80,0.06)", dur: "16s", delay: "2s" },
-    // Diamonds
-    { type: "diamond", top: "18%", left: "28%", size: "4vw", color: "rgba(180,120,200,0.08)", dur: "10s", delay: "0.7s" },
-    { type: "diamond", top: "60%", left: "4%", size: "4.5vw", color: "rgba(100,160,220,0.07)", dur: "19s", delay: "2.2s" },
-    { type: "diamond", top: "12%", left: "52%", size: "3.5vw", color: "rgba(220,100,130,0.06)", dur: "12s", delay: "3s" },
-    { type: "diamond", top: "75%", left: "70%", size: "5vw", color: "rgba(74,200,150,0.06)", dur: "15s", delay: "0.8s" },
-    // Hexagons
-    { type: "hexagon", top: "42%", left: "18%", size: "5.5vw", color: "rgba(139,92,246,0.07)", dur: "16s", delay: "1s" },
-    { type: "hexagon", top: "22%", left: "82%", size: "4.5vw", color: "rgba(74,200,180,0.06)", dur: "20s", delay: "2.8s" },
-    { type: "hexagon", top: "90%", left: "85%", size: "4vw", color: "rgba(200,100,100,0.05)", dur: "14s", delay: "0.4s" },
-    // Small floating dots
-    { type: "circle", top: "92%", left: "38%", size: "2.2vw", color: "rgba(74,144,217,0.1)", dur: "8s", delay: "0s" },
-    { type: "circle", top: "2%", left: "38%", size: "2.8vw", color: "rgba(200,100,180,0.09)", dur: "9s", delay: "0.8s" },
-    { type: "circle", top: "48%", left: "68%", size: "2vw", color: "rgba(100,200,150,0.09)", dur: "7s", delay: "1.5s" },
-    { type: "circle", top: "65%", left: "42%", size: "2.5vw", color: "rgba(200,180,100,0.08)", dur: "10s", delay: "0.3s" },
-    { type: "circle", top: "15%", left: "15%", size: "1.8vw", color: "rgba(74,127,189,0.1)", dur: "9s", delay: "2s" },
-    { type: "circle", top: "38%", left: "78%", size: "1.5vw", color: "rgba(217,74,138,0.09)", dur: "8s", delay: "1.2s" },
-    { type: "circle", top: "82%", left: "52%", size: "1.6vw", color: "rgba(139,92,246,0.08)", dur: "11s", delay: "0.6s" },
-    { type: "circle", top: "55%", left: "25%", size: "2vw", color: "rgba(100,180,220,0.08)", dur: "10s", delay: "3s" },
-    // Extra medium shapes for density
-    { type: "triangle", top: "45%", left: "40%", size: "3.5vw", color: "rgba(180,140,200,0.05)", dur: "22s", delay: "4s" },
-    { type: "diamond", top: "5%", left: "60%", size: "3vw", color: "rgba(74,144,217,0.06)", dur: "13s", delay: "1.5s" },
-    { type: "hexagon", top: "68%", left: "50%", size: "3.8vw", color: "rgba(200,130,100,0.05)", dur: "18s", delay: "2.5s" },
-    { type: "triangle", top: "95%", left: "20%", size: "4.2vw", color: "rgba(100,140,200,0.06)", dur: "15s", delay: "0.5s" },
-  ];
 
   return (
     <>
-      {shapes.map((s, i) => {
-        let borderRadius = "0";
-        let clipPath: string | undefined;
-        if (s.type === "circle") borderRadius = "50%";
-        else if (s.type === "triangle") clipPath = "polygon(50% 0%, 0% 100%, 100% 100%)";
-        else if (s.type === "diamond") clipPath = "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)";
-        else if (s.type === "hexagon") clipPath = "polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)";
-        return (
-          <div key={i} style={{
-            position: "absolute", top: s.top, left: s.left, width: s.size, height: s.size,
-            background: s.color, borderRadius, clipPath,
-            animation: `geo${i % 5} ${s.dur} ease-in-out ${s.delay} infinite`,
-            pointerEvents: "none", zIndex: 0,
-          }} />
-        );
-      })}
-    </>
-  );
-};
+      <Head>
+        <title>LiveBoard - Jump Contest</title>
+      </Head>
 
-/* ═══════════════════════════════════════ */
-export default function Home() {
-  const [scoresHommes, setScoresHommes] = useState<any[]>([]);
-  const [scoresFemmes, setScoresFemmes] = useState<any[]>([]);
-  const [dateStr, setDateStr] = useState("");
-
-  useEffect(() => {
-    setDateStr(new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" }));
-
-    const fetchScores = async () => {
-      const { data } = await supabase
-        .from("scores")
-        .select(`id, value, recorded_at, participant_id, participants (id, first_name, last_name, category, age_category)`)
-        .order("value", { ascending: false });
-
-      if (data) {
-        const bestMap = new Map();
-        for (const s of data) { if (!bestMap.has(s.participant_id)) bestMap.set(s.participant_id, s); }
-        const all = Array.from(bestMap.values());
-        setScoresHommes(all.filter(s => s.participants?.category === "Homme" || s.participants?.category === "H").slice(0, 8));
-        setScoresFemmes(all.filter(s => s.participants?.category === "Femme" || s.participants?.category === "F").slice(0, 8));
-      }
-    };
-
-    fetchScores();
-    const channel = supabase.channel("realtime-scores")
-      .on("postgres_changes", { event: "*", schema: "public", table: "scores" }, () => fetchScores())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
-
-  return (
-    <main style={{
-      height: "100vh", width: "100vw", margin: 0, position: "relative", overflow: "hidden",
-      background: "linear-gradient(160deg, #edf1f7 0%, #e4e8f0 30%, #f2e8ee 70%, #edf1f7 100%)",
-      fontFamily: "'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif",
-      color: "#1e293b", padding: 0,
-      display: "flex", flexDirection: "column",
-    }}>
-      <GeometricBackground />
-
-      {/* Pulsating gradient overlay */}
-      <div style={{
-        position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none",
-        background: "radial-gradient(ellipse at 20% 30%, rgba(74,144,217,0.05) 0%, transparent 60%), radial-gradient(ellipse at 80% 70%, rgba(217,74,138,0.05) 0%, transparent 60%)",
-        animation: "pulseOverlay 6s ease-in-out infinite alternate",
-      }} />
-
-      {/* Header */}
-      <header style={{
-        display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center",
-        padding: "1.5vh 3vw", flexShrink: 0,
-        position: "relative", zIndex: 10,
-        borderBottom: "1px solid rgba(0,0,0,0.05)",
-        background: "rgba(255,255,255,0.4)", backdropFilter: "blur(20px)",
+      <main style={{
+        width: "100vw", height: "100vh", margin: 0, padding: 0, overflow: "hidden", position: "relative",
+        background: "linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%)",
+        fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif"
       }}>
-        <div /> {/* Empty spacer to balance the grid correctly */}
-        <h1 style={{ fontSize: "clamp(3rem, 4.4vw, 6rem)", fontWeight: 800, color: "#334155", margin: 0, letterSpacing: "-0.02em", textAlign: "center" }}>
-          Classement Jump Contest
-        </h1>
-        <div style={{ textAlign: "right" }}>
-          <span style={{ fontSize: "clamp(2.4rem, 3.6vw, 5rem)", color: "#94a3b8", fontWeight: 700 }}>
-            {dateStr}
-          </span>
+        
+        {/* === Full-Screen Sponsor Overlay === */}
+        <div style={{
+          position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
+          zIndex: 9999, background: "#000000",
+          opacity: displayMode === 'carousel' ? 1 : 0,
+          pointerEvents: displayMode === 'carousel' ? "auto" : "none",
+          transition: "opacity 0.8s ease-in-out",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          {displayMode === 'carousel' && sponsors[currentSponsorIndex] && isSponsorVisible && (
+            sponsors[currentSponsorIndex].media_type === "video" ? (
+              <video 
+                 src={sponsors[currentSponsorIndex].media_url} 
+                 autoPlay muted loop 
+                 style={{ width: "100%", height: "100%", objectFit: "cover", animation: "fadeInMedia 0.5s ease" }} 
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                 src={sponsors[currentSponsorIndex].media_url} 
+                 alt={sponsors[currentSponsorIndex].name}
+                 style={{ width: "100%", height: "100%", objectFit: "contain", animation: "fadeInMedia 0.5s ease" }} 
+              />
+            )
+          )}
         </div>
-      </header>
 
-      {/* Content — Fill the remaining space completely */}
-      <div style={{
-        flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr",
-        gap: "3vw", padding: "3vh 3vw",
-        position: "relative", zIndex: 10,
-        alignItems: "stretch", /* Ensure columns stretch to fill vertically */
-      }}>
-        <LeaderboardColumn title="Classement Masculin" data={scoresHommes} isMale={true} />
-        <LeaderboardColumn title="Classement Féminin" data={scoresFemmes} isMale={false} />
-      </div>
+        {/* Geometric Animated Background */}
+        <div style={{ position: "absolute", width: "100vw", height: "100vh", zIndex: 0, overflow: "hidden", filter: "blur(40px) opacity(0.5)" }}>
+           <div style={{ position: "absolute", top: "10%", left: "10%", width: "40vw", height: "40vw", background: "rgba(59,130,246,0.3)", borderRadius: "50%", animation: "geoFloat 20s infinite alternate" }} />
+           <div style={{ position: "absolute", bottom: "10%", right: "10%", width: "50vw", height: "50vw", background: "rgba(236,72,153,0.3)", borderRadius: "50%", animation: "geoFloat 25s infinite alternate-reverse" }} />
+           <div style={{ position: "absolute", top: "40%", left: "50%", width: "30vw", height: "30vw", background: "rgba(139,92,246,0.2)", borderRadius: "50%", animation: "geoFloat 18s infinite alternate" }} />
+        </div>
 
-      {/* Admin link */}
-      <div style={{ position: "fixed", bottom: "1vh", right: "1vw", zIndex: 20 }}>
-        <Link href="/login" style={{ fontSize: "clamp(1.6rem, 2vw, 2.8rem)", color: "rgba(0,0,0,0.12)", textDecoration: "none" }}>
-          Accès Panel
-        </Link>
-      </div>
+        {/* Content Container */}
+        <div style={{ display: "flex", flexDirection: "column", width: "100vw", height: "100vh", position: "relative", zIndex: 10, padding: "3vh 2vw" }}>
+          
+          {/* Main Header (Grid to perfectly center title and keep date right) */}
+          <header style={{
+            display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center",
+            width: "100%", padding: "0 2vw 2vh", borderBottom: "1px solid rgba(0,0,0,0.05)"
+          }}>
+            <div />{/* Empty left column */}
+            
+            <div style={{ textAlign: "center" }}>
+              <h1 style={{ fontSize: "clamp(3rem, 4vw, 6rem)", fontWeight: 900, color: "#1e293b", letterSpacing: "-0.02em", margin: 0, textTransform: "uppercase" }}>
+                Classement Jump Contest
+              </h1>
+            </div>
 
-      <style>{`
-        @keyframes podiumFloat {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-1.5vh); }
-        }
-        @keyframes geo0 {
-          0%   { transform: translate(0, 0) rotate(0deg); opacity: 0.6; }
-          25%  { transform: translate(2vw, -3vh) rotate(50deg); opacity: 1; }
-          50%  { transform: translate(-1vw, -2vh) rotate(110deg); opacity: 0.4; }
-          75%  { transform: translate(1.5vw, -4vh) rotate(220deg); opacity: 0.9; }
-          100% { transform: translate(0, 0) rotate(360deg); opacity: 0.6; }
-        }
-        @keyframes geo1 {
-          0%   { transform: translate(0, 0) rotate(0deg) scale(1); }
-          33%  { transform: translate(-2vw, -3vh) rotate(130deg) scale(1.18); }
-          66%  { transform: translate(1.5vw, -4vh) rotate(250deg) scale(0.88); }
-          100% { transform: translate(0, 0) rotate(360deg) scale(1); }
-        }
-        @keyframes geo2 {
-          0%   { transform: translate(0, 0) rotate(0deg); }
-          20%  { transform: translate(3vw, -1.5vh) rotate(75deg); }
-          40%  { transform: translate(-1vw, -4vh) rotate(150deg); }
-          60%  { transform: translate(-2.5vw, -1.5vh) rotate(225deg); }
-          80%  { transform: translate(1.5vw, -3vh) rotate(300deg); }
-          100% { transform: translate(0, 0) rotate(360deg); }
-        }
-        @keyframes geo3 {
-          0%   { transform: translate(0, 0) scale(1); opacity: 0.5; }
-          50%  { transform: translate(-2vw, -3.5vh) scale(1.25); opacity: 1; }
-          100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
-        }
-        @keyframes geo4 {
-          0%   { transform: translate(0, 0) rotate(0deg); opacity: 0.7; }
-          30%  { transform: translate(1.5vw, -3vh) rotate(100deg); opacity: 0.4; }
-          60%  { transform: translate(-2vw, -2vh) rotate(200deg); opacity: 1; }
-          100% { transform: translate(0, 0) rotate(360deg); opacity: 0.7; }
-        }
-        @keyframes pulseOverlay {
-          0%   { opacity: 0.4; }
-          100% { opacity: 1; }
-        }
-      `}</style>
-    </main>
+            <div style={{ textAlign: "right" }}>
+              <span style={{ fontSize: "clamp(2rem, 2.5vw, 4rem)", fontWeight: 800, color: "#64748b", background: "rgba(255,255,255,0.6)", padding: "1vh 2vw", borderRadius: "1.5vh" }}>
+                {new Date().toLocaleDateString("fr-FR")}
+              </span>
+            </div>
+          </header>
+
+          {/* Leaderboard Columns */}
+          <div style={{ display: "flex", flex: 1, gap: "4vw", paddingTop: "4vh" }}>
+            
+            <div style={{ flex: 1, height: "100%", background: "linear-gradient(180deg, rgba(232,237,244,0) 0%, rgba(232,237,244,0.8) 100%)", borderRadius: "3vh" }}>
+              <LeaderboardColumn title="Classement Masculin" data={topHommes} themeColor="#3b82f6" gender="Homme" />
+            </div>
+
+            <div style={{ width: "2px", height: "80%", background: "linear-gradient(to bottom, transparent, rgba(0,0,0,0.1), transparent)", margin: "auto 0" }} />
+
+            <div style={{ flex: 1, height: "100%", background: "linear-gradient(180deg, rgba(244,224,232,0) 0%, rgba(244,224,232,0.8) 100%)", borderRadius: "3vh" }}>
+              <LeaderboardColumn title="Classement Féminin" data={topFemmes} themeColor="#ec4899" gender="Femme" />
+            </div>
+
+          </div>
+
+          <a href="/admin" target="_blank" style={{
+            position: "absolute", bottom: "3vh", right: "3vw", padding: "1.5vh 1.5vw",
+            background: "rgba(255,255,255,0.5)", color: "#1e293b", textDecoration: "none",
+            borderRadius: "1vh", fontSize: "1vw", fontWeight: 700, backdropFilter: "blur(10px)",
+            border: "1px solid rgba(255,255,255,0.5)", transition: "all 0.2s z-index: 100",
+          }}>
+            Panel Admin
+          </a>
+        </div>
+
+        {/* Animations */}
+        <style>{`
+          @keyframes podiumFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-2vh); }
+          }
+          @keyframes geoFloat {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(10vw, 10vh) scale(1.1); }
+          }
+          @keyframes fadeInMedia {
+            from { opacity: 0; transform: scale(1.05); }
+            to { opacity: 1; transform: scale(1); }
+          }
+        `}</style>
+      </main>
+    </>
   );
 }
