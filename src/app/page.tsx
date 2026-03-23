@@ -182,8 +182,8 @@ export default function Home() {
                       <strong style={{ fontSize: "1.15rem", display: "block", color: "white" }}>
                         {score.participants?.first_name} {score.participants?.last_name?.toUpperCase()}
                       </strong>
-                      <span style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.5)" }}>
-                        {score.age_category}
+                      <span style={{ fontSize: "0.9rem", color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>
+                        {score.participants?.category === 'H' ? 'Homme' : score.participants?.category === 'F' ? 'Femme' : score.participants?.category} • {score.age_category}
                       </span>
                     </div>
                   </div>

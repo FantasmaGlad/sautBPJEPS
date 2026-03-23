@@ -8,16 +8,23 @@ export default function AdminPage() {
   const router = useRouter();
   const [loadingAuth, setLoadingAuth] = useState(true);
   
-  // États de l'interface
+  // États d'ajout
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [category, setCategory] = useState("H");
+  const [category, setCategory] = useState("Homme");
+  
+  // États globaux
   const [participants, setParticipants] = useState<any[]>([]);
   const [scoresHistory, setScoresHistory] = useState<any[]>([]);
   
+  // États score
   const [selectedParticipant, setSelectedParticipant] = useState("");
   const [selectedAgeCategory, setSelectedAgeCategory] = useState("");
   const [scoreValue, setScoreValue] = useState("");
+  
+  // États gestion profils
+  const [searchQuery, setSearchQuery] = useState("");
+  const [editingParticipant, setEditingParticipant] = useState<any>(null);
   
   const [statusMsg, setStatusMsg] = useState("");
 
@@ -53,6 +60,7 @@ export default function AdminPage() {
     router.push("/");
   };
 
+  // --- ACTIONS PARTICIPANTS ---
   const addParticipant = async (e: React.FormEvent) => {
     e.preventDefault();
     const { error } = await supabase.from("participants").insert([{
@@ -65,11 +73,48 @@ export default function AdminPage() {
     else {
       setStatusMsg(`Le participant ${firstName} ${lastName} a bien été ajouté !`);
       setFirstName(""); setLastName("");
-      fetchData(); // Rafraîchir pour faire apparaitre dans liste déroulante
+      fetchData();
     }
     setTimeout(() => setStatusMsg(""), 4000);
   };
 
+  const deleteParticipant = async (id: string, name: string) => {
+    const confirmDelete = window.confirm(`Supprimer complètement ${name} ? Tous ses sauts seront perdus !`);
+    if (!confirmDelete) return;
+
+    const { error } = await supabase.from("participants").delete().eq("id", id);
+    if (!error) {
+      setStatusMsg("Profil supprimé avec succès.");
+      fetchData();
+      setTimeout(() => setStatusMsg(""), 4000);
+    } else {
+      setStatusMsg(`Erreur: ${error.message}`);
+    }
+  };
+
+  const saveParticipantEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingParticipant) return;
+    
+    const { error } = await supabase.from("participants")
+      .update({
+        first_name: editingParticipant.first_name,
+        last_name: editingParticipant.last_name,
+        category: editingParticipant.category
+      })
+      .eq("id", editingParticipant.id);
+
+    if (error) {
+      setStatusMsg(`Erreur modif: ${error.message}`);
+    } else {
+      setStatusMsg("Profil mis à jour !");
+      setEditingParticipant(null);
+      fetchData();
+    }
+    setTimeout(() => setStatusMsg(""), 4000);
+  };
+
+  // --- ACTIONS SCORES ---
   const addScore = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedParticipant || !selectedAgeCategory || !scoreValue) return;
@@ -85,7 +130,7 @@ export default function AdminPage() {
     else {
       setStatusMsg("Score enregistré avec succès (il apparaitra sur la vue TV).");
       setScoreValue("");
-      fetchData(); // Rafraîchir l'historique
+      fetchData();
     }
     setTimeout(() => setStatusMsg(""), 4000);
   };
@@ -102,6 +147,11 @@ export default function AdminPage() {
     }
   };
 
+  // --- FILTRES ---
+  const filteredParticipants = participants.filter(p => 
+    `${p.first_name} ${p.last_name}`.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (loadingAuth) return <main style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", background: "#111827", color: "white" }}><p>Chargement du panel...</p></main>;
 
   return (
@@ -110,9 +160,14 @@ export default function AdminPage() {
         
         <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "3rem", borderBottom: "1px solid #334155", paddingBottom: "1rem" }}>
           <h1 style={{ color: "white", margin: 0 }}>Dashboard LiveBoard</h1>
-          <button onClick={handleLogout} style={{ padding: "0.6rem 1.2rem", background: "transparent", color: "#f87171", border: "1px solid #f87171", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>
-            Quitter le panel
-          </button>
+          <div style={{ display: "flex", gap: "1rem" }}>
+            <button onClick={() => window.open("/", "_blank")} style={{ padding: "0.6rem 1.2rem", background: "#3b82f6", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>
+              📺 Vue TV
+            </button>
+            <button onClick={handleLogout} style={{ padding: "0.6rem 1.2rem", background: "transparent", color: "#f87171", border: "1px solid #f87171", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>
+              Quitter
+            </button>
+          </div>
         </header>
 
         {statusMsg && (
@@ -121,7 +176,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "2rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "2rem", marginBottom: "2rem" }}>
           
           {/* Bloc Ajout Participant */}
           <section style={{ background: "#1e293b", padding: "2rem", borderRadius: "12px", border: "1px solid #334155", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.3)" }}>
@@ -130,8 +185,8 @@ export default function AdminPage() {
               <input type="text" placeholder="Prénom" value={firstName} onChange={e => setFirstName(e.target.value)} required style={inputStyle} />
               <input type="text" placeholder="Nom" value={lastName} onChange={e => setLastName(e.target.value)} required style={inputStyle} />
               <select value={category} onChange={e => setCategory(e.target.value)} style={inputStyle}>
-                <option value="H">Homme (H)</option>
-                <option value="F">Femme (F)</option>
+                <option value="Homme">Homme</option>
+                <option value="Femme">Femme</option>
               </select>
               <button type="submit" style={btnStyle}>Enregistrer le participant</button>
             </form>
@@ -144,7 +199,7 @@ export default function AdminPage() {
               <select value={selectedParticipant} onChange={e => setSelectedParticipant(e.target.value)} required style={inputStyle}>
                 <option value="">-- Choisir Participant --</option>
                 {participants.map(p => (
-                  <option key={p.id} value={p.id}>{p.last_name} {p.first_name}</option>
+                  <option key={p.id} value={p.id}>{p.last_name} {p.first_name} ({p.category})</option>
                 ))}
               </select>
 
@@ -159,11 +214,78 @@ export default function AdminPage() {
               <button type="submit" style={{...btnStyle, background: "#8b5cf6"}}>Valider et Diffuser le Score</button>
             </form>
           </section>
+        </div>
 
-          {/* Bloc Historique (largeur totale) */}
-          <section style={{ gridColumn: "1 / -1", background: "#1e293b", padding: "2rem", borderRadius: "12px", border: "1px solid #334155", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.3)" }}>
-            <h2 style={{ fontSize: "1.2rem", marginBottom: "1.5rem", color: "white" }}>3. Historique des Sauts par Profil</h2>
+        {/* Bloc Gestion Profils & Historique */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "2rem" }}>
+          
+          <section style={{ background: "#1e293b", padding: "2rem", borderRadius: "12px", border: "1px solid #334155", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.3)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
+              <h2 style={{ fontSize: "1.2rem", color: "white", margin: 0 }}>3. Gestion des Profils</h2>
+              <input 
+                type="text" 
+                placeholder="Rechercher un athlète..." 
+                value={searchQuery} 
+                onChange={e => setSearchQuery(e.target.value)} 
+                style={{...inputStyle, width: "250px", padding: "0.5rem 1rem"}} 
+              />
+            </div>
             
+            {editingParticipant && (
+              <form onSubmit={saveParticipantEdit} style={{ background: "rgba(59, 130, 246, 0.1)", padding: "1.5rem", borderRadius: "8px", border: "1px solid #3b82f6", display: "flex", flexWrap: "wrap", gap: "1rem", alignItems: "center", marginBottom: "2rem" }}>
+                <strong style={{ color: "white", width: "100%" }}>Modifier le profil :</strong>
+                <input type="text" value={editingParticipant.first_name} onChange={e => setEditingParticipant({...editingParticipant, first_name: e.target.value})} required style={{...inputStyle, padding: "0.5rem"}} />
+                <input type="text" value={editingParticipant.last_name} onChange={e => setEditingParticipant({...editingParticipant, last_name: e.target.value})} required style={{...inputStyle, padding: "0.5rem"}} />
+                <select value={editingParticipant.category} onChange={e => setEditingParticipant({...editingParticipant, category: e.target.value})} style={{...inputStyle, padding: "0.5rem"}}>
+                  <option value="Homme">Homme</option>
+                  <option value="Femme">Femme</option>
+                  <option value="H">Homme (Legacy)</option>
+                  <option value="F">Femme (Legacy)</option>
+                </select>
+                <button type="submit" style={{...btnStyle, marginTop: 0, padding: "0.5rem 1rem"}}>Sauvegarder</button>
+                <button type="button" onClick={() => setEditingParticipant(null)} style={{ padding: "0.5rem 1rem", background: "transparent", color: "#94a3b8", border: "none", cursor: "pointer" }}>Annuler</button>
+              </form>
+            )}
+
+            {filteredParticipants.length === 0 ? (
+               <p style={{ color: "rgba(255,255,255,0.4)", fontStyle: "italic" }}>Aucun participant trouvé.</p>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid #334155", color: "#94a3b8" }}>
+                      <th style={{ padding: "1rem" }}>NOM Prénom</th>
+                      <th style={{ padding: "1rem" }}>Cat. Sexe</th>
+                      <th style={{ padding: "1rem", textAlign: "right" }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredParticipants.map(p => (
+                      <tr key={p.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                        <td style={{ padding: "1rem", fontWeight: "bold" }}>{p.last_name} {p.first_name}</td>
+                        <td style={{ padding: "1rem" }}>
+                          <span style={{ padding: "0.2rem 0.6rem", background: "rgba(255,255,255,0.05)", borderRadius: "12px", fontSize: "0.85rem" }}>
+                            {p.category === 'H' ? 'Homme' : p.category === 'F' ? 'Femme' : p.category}
+                          </span>
+                        </td>
+                        <td style={{ padding: "1rem", textAlign: "right" }}>
+                          <button onClick={() => setEditingParticipant(p)} style={{ marginRight: "0.5rem", padding: "0.4rem 0.8rem", background: "rgba(59, 130, 246, 0.1)", color: "#3b82f6", border: "1px solid rgba(59, 130, 246, 0.3)", borderRadius: "4px", cursor: "pointer", fontSize: "0.85rem" }}>
+                            Éditer
+                          </button>
+                          <button onClick={() => deleteParticipant(p.id, `${p.first_name} ${p.last_name}`)} style={{ padding: "0.4rem 0.8rem", background: "rgba(239, 68, 68, 0.1)", color: "#ef4444", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: "4px", cursor: "pointer", fontSize: "0.85rem" }}>
+                            Suppr.
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <section style={{ background: "#1e293b", padding: "2rem", borderRadius: "12px", border: "1px solid #334155", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.3)" }}>
+            <h2 style={{ fontSize: "1.2rem", marginBottom: "1.5rem", color: "white" }}>4. Historique Rapide des Sauts</h2>
             {scoresHistory.length === 0 ? (
               <p style={{ color: "rgba(255,255,255,0.4)", fontStyle: "italic" }}>Aucun saut enregistré pour le moment.</p>
             ) : (
@@ -171,12 +293,11 @@ export default function AdminPage() {
                 <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
                   <thead>
                     <tr style={{ borderBottom: "1px solid #334155", color: "#94a3b8" }}>
-                      <th style={{ padding: "1rem" }}>Participant</th>
-                      <th style={{ padding: "1rem" }}>Cat. Sexe</th>
-                      <th style={{ padding: "1rem" }}>Cat. Âge</th>
-                      <th style={{ padding: "1rem" }}>Date & Heure</th>
+                      <th style={{ padding: "1rem" }}>Athlète</th>
+                      <th style={{ padding: "1rem" }}>Genre / Âge</th>
+                      <th style={{ padding: "1rem" }}>Date</th>
                       <th style={{ padding: "1rem" }}>Score</th>
-                      <th style={{ padding: "1rem", textAlign: "right" }}>Action</th>
+                      <th style={{ padding: "1rem", textAlign: "right" }}>X</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -185,18 +306,16 @@ export default function AdminPage() {
                         <td style={{ padding: "1rem", fontWeight: "bold" }}>
                           {score.participants?.first_name} {score.participants?.last_name}
                         </td>
-                        <td style={{ padding: "1rem" }}>{score.participants?.category}</td>
-                        <td style={{ padding: "1rem" }}>{score.age_category}</td>
-                        <td style={{ padding: "1rem", color: "#94a3b8", fontSize: "0.9rem" }}>
-                          {new Date(score.recorded_at).toLocaleString("fr-FR")}
+                        <td style={{ padding: "1rem" }}>
+                          {score.participants?.category === 'H' ? 'Homme' : score.participants?.category === 'F' ? 'Femme' : score.participants?.category} — {score.age_category}
                         </td>
-                        <td style={{ padding: "1rem", color: "#8b5cf6", fontWeight: "bold" }}>{score.value}</td>
+                        <td style={{ padding: "1rem", color: "#94a3b8", fontSize: "0.9rem" }}>
+                          {new Date(score.recorded_at).toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td style={{ padding: "1rem", color: "#8b5cf6", fontWeight: "bold" }}>{score.value} M</td>
                         <td style={{ padding: "1rem", textAlign: "right" }}>
-                          <button 
-                            onClick={() => deleteScore(score.id)}
-                            style={{ padding: "0.4rem 0.8rem", background: "rgba(239, 68, 68, 0.1)", color: "#ef4444", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: "4px", cursor: "pointer", fontSize: "0.85rem" }}
-                          >
-                            Supprimer
+                          <button onClick={() => deleteScore(score.id)} style={{ padding: "0.4rem 0.8rem", background: "rgba(239, 68, 68, 0.1)", color: "#ef4444", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: "4px", cursor: "pointer", fontSize: "0.85rem" }}>
+                            X
                           </button>
                         </td>
                       </tr>
@@ -213,5 +332,5 @@ export default function AdminPage() {
   );
 }
 
-const inputStyle = { padding: "0.85rem", borderRadius: "6px", border: "1px solid #475569", background: "#0f172a", color: "white", fontSize: "0.95rem" };
-const btnStyle = { padding: "0.85rem", borderRadius: "6px", background: "#3b82f6", color: "white", border: "none", cursor: "pointer", fontWeight: "bold", marginTop: "0.5rem" };
+const inputStyle = { padding: "0.75rem", borderRadius: "6px", border: "1px solid #475569", background: "#0f172a", color: "white", fontSize: "0.95rem" };
+const btnStyle = { padding: "0.75rem", borderRadius: "6px", background: "#3b82f6", color: "white", border: "none", cursor: "pointer", fontWeight: "bold", marginTop: "0.5rem" };
