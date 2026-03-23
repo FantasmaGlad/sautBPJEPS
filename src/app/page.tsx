@@ -179,7 +179,7 @@ export default function Home() {
 
   /* === Left/Right Column Container === */
   const LeaderboardColumn = ({ title, data, themeColor, gender }: { title: string; data: any[]; themeColor: string; gender: string }) => {
-    const top3 = [data[1], data[0], data[2]]; // Order: 2, 1, 3
+    const top3 = [data[0], data[1], data[2]]; // Order: 1, 2, 3
     
     // Always create 5 slots for ranks 4 to 8
     const extendedList = [];
@@ -205,8 +205,8 @@ export default function Home() {
           height: "45vh", perspective: "800px", marginBottom: "3vh",
         }}>
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%", height: "100%", transform: "rotateX(2deg)" }}>
-            <PodiumCard score={top3[0]} rank={2} color="rgba(255,255,255,0.7)" height="75%" />
-            <PodiumCard score={top3[1]} rank={1} color="rgba(255,255,255,0.95)" height="95%" />
+            <PodiumCard score={top3[0]} rank={1} color="rgba(255,255,255,0.95)" height="95%" />
+            <PodiumCard score={top3[1]} rank={2} color="rgba(255,255,255,0.7)" height="75%" />
             <PodiumCard score={top3[2]} rank={3} color="rgba(255,255,255,0.5)" height="65%" />
           </div>
         </div>
@@ -312,7 +312,7 @@ export default function Home() {
         </div>
 
         {/* Content Container */}
-        <div style={{ display: "flex", flexDirection: "column", width: "100vw", height: "100vh", position: "relative", zIndex: 10, padding: "3vh 2vw" }}>
+        <div style={{ display: "flex", flexDirection: "column", width: "100vw", height: "100vh", position: "relative", zIndex: 10, padding: "3vh 2vw", boxSizing: "border-box" }}>
           
           {/* Main Header (Grid to perfectly center title and keep date right) */}
           <header style={{
