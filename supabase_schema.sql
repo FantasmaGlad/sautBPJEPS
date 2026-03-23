@@ -9,15 +9,15 @@ CREATE TABLE participants (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   first_name  TEXT NOT NULL,
   last_name   TEXT NOT NULL,
-  category    TEXT NOT NULL, -- "H" | "F"
-  created_at  TIMESTAMPTZ DEFAULT now()
+  category     TEXT NOT NULL,
+  age_category TEXT NOT NULL DEFAULT 'U18',
+  created_at   TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE scores (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   participant_id  UUID REFERENCES participants(id) ON DELETE CASCADE,
-  age_category    TEXT NOT NULL, -- ex: "U18", "M35", etc.
-  value           NUMERIC NOT NULL,
+  value           INTEGER NOT NULL,
   is_active       BOOLEAN DEFAULT true,
   recorded_at     TIMESTAMPTZ DEFAULT now()
 );

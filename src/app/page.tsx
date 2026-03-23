@@ -12,8 +12,8 @@ export default function Home() {
       const { data } = await supabase
         .from("scores")
         .select(`
-          id, value, recorded_at, age_category, participant_id,
-          participants (id, first_name, last_name, category)
+          id, value, recorded_at, participant_id,
+          participants (id, first_name, last_name, category, age_category)
         `)
         .order("value", { ascending: false });
         
@@ -191,7 +191,7 @@ export default function Home() {
                         {score.participants?.first_name} {score.participants?.last_name?.toUpperCase()}
                       </strong>
                       <span style={{ fontSize: "0.9rem", color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>
-                        {score.participants?.category === 'H' ? 'Homme' : score.participants?.category === 'F' ? 'Femme' : score.participants?.category} • {score.age_category}
+                        {score.participants?.category === 'H' ? 'Homme' : score.participants?.category === 'F' ? 'Femme' : score.participants?.category} • {score.participants?.age_category || 'U18'}
                       </span>
                     </div>
                   </div>

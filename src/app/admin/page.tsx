@@ -12,6 +12,7 @@ export default function AdminPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [category, setCategory] = useState("Homme");
+  const [ageCategory, setAgeCategory] = useState("U18");
   
   // États globaux
   const [participants, setParticipants] = useState<any[]>([]);
@@ -19,7 +20,6 @@ export default function AdminPage() {
   
   // États score
   const [selectedParticipant, setSelectedParticipant] = useState("");
-  const [selectedAgeCategory, setSelectedAgeCategory] = useState("");
   const [scoreValue, setScoreValue] = useState("");
   
   // États gestion profils
@@ -48,7 +48,7 @@ export default function AdminPage() {
   const fetchData = async () => {
     const { data: pData } = await supabase.from("participants").select("*").order("last_name");
     const { data: sData } = await supabase.from("scores")
-      .select("*, participants(first_name, last_name, category)")
+      .select("*, participants(first_name, last_name, category, age_category)")
       .order("recorded_at", { ascending: false });
 
     if (pData) setParticipants(pData);
@@ -66,7 +66,8 @@ export default function AdminPage() {
     const { error } = await supabase.from("participants").insert([{
       first_name: firstName,
       last_name: lastName,
-      category: category
+      category: category,
+      age_category: ageCategory
     }]);
     
     if (error) setStatusMsg(`Erreur Création: ${error.message}`);
@@ -100,7 +101,8 @@ export default function AdminPage() {
       .update({
         first_name: editingParticipant.first_name,
         last_name: editingParticipant.last_name,
-        category: editingParticipant.category
+        category: editingParticipant.category,
+        age_category: editingParticipant.age_category
       })
       .eq("id", editingParticipant.id);
 
@@ -117,11 +119,10 @@ export default function AdminPage() {
   // --- ACTIONS SCORES ---
   const addScore = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedParticipant || !selectedAgeCategory || !scoreValue) return;
+    if (!selectedParticipant || !scoreValue) return;
 
     const { error } = await supabase.from("scores").insert([{
       participant_id: selectedParticipant,
-      age_category: selectedAgeCategory,
       value: parseInt(scoreValue, 10),
       is_active: true
     }]);
@@ -188,6 +189,11 @@ export default function AdminPage() {
                 <option value="Homme">Homme</option>
                 <option value="Femme">Femme</option>
               </select>
+              <select value={ageCategory} onChange={e => setAgeCategory(e.target.value)} style={inputStyle}>
+                {AGE_CATEGORIES.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
               <button type="submit" style={btnStyle}>Enregistrer le participant</button>
             </form>
           </section>
@@ -199,14 +205,7 @@ export default function AdminPage() {
               <select value={selectedParticipant} onChange={e => setSelectedParticipant(e.target.value)} required style={inputStyle}>
                 <option value="">-- Choisir Participant --</option>
                 {participants.map(p => (
-                  <option key={p.id} value={p.id}>{p.last_name} {p.first_name} ({p.category})</option>
-                ))}
-              </select>
-
-              <select value={selectedAgeCategory} onChange={e => setSelectedAgeCategory(e.target.value)} required style={inputStyle}>
-                <option value="">-- Choisir Catégorie d&apos;Âge --</option>
-                {AGE_CATEGORIES.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
+                  <option key={p.id} value={p.id}>{p.last_name} {p.first_name} ({p.category} - {p.age_category || 'U18'})</option>
                 ))}
               </select>
 
@@ -236,12 +235,18 @@ export default function AdminPage() {
                 <strong style={{ color: "white", width: "100%" }}>Modifier le profil :</strong>
                 <input type="text" value={editingParticipant.first_name} onChange={e => setEditingParticipant({...editingParticipant, first_name: e.target.value})} required style={{...inputStyle, padding: "0.5rem"}} />
                 <input type="text" value={editingParticipant.last_name} onChange={e => setEditingParticipant({...editingParticipant, last_name: e.target.value})} required style={{...inputStyle, padding: "0.5rem"}} />
+                
                 <select value={editingParticipant.category} onChange={e => setEditingParticipant({...editingParticipant, category: e.target.value})} style={{...inputStyle, padding: "0.5rem"}}>
                   <option value="Homme">Homme</option>
                   <option value="Femme">Femme</option>
                   <option value="H">Homme (Legacy)</option>
                   <option value="F">Femme (Legacy)</option>
                 </select>
+
+                <select value={editingParticipant.age_category || 'U18'} onChange={e => setEditingParticipant({...editingParticipant, age_category: e.target.value})} style={{...inputStyle, padding: "0.5rem"}}>
+                  {AGE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                </select>
+
                 <button type="submit" style={{...btnStyle, marginTop: 0, padding: "0.5rem 1rem"}}>Sauvegarder</button>
                 <button type="button" onClick={() => setEditingParticipant(null)} style={{ padding: "0.5rem 1rem", background: "transparent", color: "#94a3b8", border: "none", cursor: "pointer" }}>Annuler</button>
               </form>
@@ -255,7 +260,7 @@ export default function AdminPage() {
                   <thead>
                     <tr style={{ borderBottom: "1px solid #334155", color: "#94a3b8" }}>
                       <th style={{ padding: "1rem" }}>NOM Prénom</th>
-                      <th style={{ padding: "1rem" }}>Cat. Sexe</th>
+                      <th style={{ padding: "1rem" }}>Genre / Âge</th>
                       <th style={{ padding: "1rem", textAlign: "right" }}>Actions</th>
                     </tr>
                   </thead>
@@ -265,7 +270,7 @@ export default function AdminPage() {
                         <td style={{ padding: "1rem", fontWeight: "bold" }}>{p.last_name} {p.first_name}</td>
                         <td style={{ padding: "1rem" }}>
                           <span style={{ padding: "0.2rem 0.6rem", background: "rgba(255,255,255,0.05)", borderRadius: "12px", fontSize: "0.85rem" }}>
-                            {p.category === 'H' ? 'Homme' : p.category === 'F' ? 'Femme' : p.category}
+                            {p.category === 'H' ? 'Homme' : p.category === 'F' ? 'Femme' : p.category} — {p.age_category || 'U18'}
                           </span>
                         </td>
                         <td style={{ padding: "1rem", textAlign: "right" }}>
@@ -294,7 +299,6 @@ export default function AdminPage() {
                   <thead>
                     <tr style={{ borderBottom: "1px solid #334155", color: "#94a3b8" }}>
                       <th style={{ padding: "1rem" }}>Athlète</th>
-                      <th style={{ padding: "1rem" }}>Genre / Âge</th>
                       <th style={{ padding: "1rem" }}>Date</th>
                       <th style={{ padding: "1rem" }}>Score</th>
                       <th style={{ padding: "1rem", textAlign: "right" }}>X</th>
@@ -305,9 +309,6 @@ export default function AdminPage() {
                       <tr key={score.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                         <td style={{ padding: "1rem", fontWeight: "bold" }}>
                           {score.participants?.first_name} {score.participants?.last_name}
-                        </td>
-                        <td style={{ padding: "1rem" }}>
-                          {score.participants?.category === 'H' ? 'Homme' : score.participants?.category === 'F' ? 'Femme' : score.participants?.category} — {score.age_category}
                         </td>
                         <td style={{ padding: "1rem", color: "#94a3b8", fontSize: "0.9rem" }}>
                           {new Date(score.recorded_at).toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' })}
