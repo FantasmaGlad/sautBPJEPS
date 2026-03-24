@@ -203,16 +203,16 @@ export default function Home() {
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
             boxShadow: "-1vh 1vh 2vh rgba(0,0,0,0.02)",
           }}>
-            <span style={{ fontSize: "clamp(3rem, 5vw, 6.5rem)", fontWeight: 900, color: `rgba(${themeRGB},0.6)`, lineHeight: 1 }}>
+            <span style={{ fontSize: "clamp(4rem, 6.5vw, 8rem)", fontWeight: 900, color: `rgba(${themeRGB},0.6)`, lineHeight: 1 }}>
               #{rank}
             </span>
             {score && (
               <>
-                <span style={{ fontSize: "clamp(1.8rem, 2.8vw, 4rem)", fontWeight: 900, color: "#1e293b", marginTop: "1vh", lineHeight: 1.1 }}>
+                <span style={{ fontSize: "clamp(2.5rem, 3.5vw, 5rem)", fontWeight: 900, color: "#1e293b", marginTop: "1vh", lineHeight: 1.1 }}>
                   {score.value}
                 </span>
                 <span style={{
-                  fontSize: "clamp(1.3rem, 2vw, 2.8rem)", fontWeight: 700, color: "#64748b",
+                  fontSize: "clamp(1.8rem, 2.5vw, 3.5rem)", fontWeight: 800, color: "#64748b",
                   whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "90%", textAlign: "center",
                   lineHeight: 1.2, marginTop: "0.5vh"
                 }}>
@@ -243,7 +243,7 @@ export default function Home() {
         <h2 style={{
           textAlign: "center", color: themeColor, fontSize: "clamp(2.5rem, 3.5vw, 5rem)",
           fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", fontStyle: "normal",
-          marginBottom: "4vh", textShadow: "0 2px 10px rgba(0,0,0,0.05)"
+          marginBottom: "8vh", textShadow: "0 2px 10px rgba(0,0,0,0.05)"
         }}>
           {title}
         </h2>
@@ -268,7 +268,7 @@ export default function Home() {
             display: "flex", flexDirection: "column", gap: "1vh"
           }}>
             {/* Header Row */}
-            <div style={{ display: "flex", color: "#64748b", fontSize: "clamp(1.4rem, 1.8vw, 2.5rem)", fontWeight: 800, borderBottom: "2px solid rgba(0,0,0,0.05)", paddingBottom: "1vh" }}>
+            <div style={{ display: "flex", color: "#64748b", fontSize: "clamp(1.8rem, 2.5vw, 3.2rem)", fontWeight: 800, borderBottom: "2px solid rgba(0,0,0,0.05)", paddingBottom: "1vh" }}>
               <div style={{ width: "15%", textAlign: "center" }}>RANG</div>
               <div style={{ flex: 1, paddingLeft: "6vw" }}>ATHLÈTE</div>
               <div style={{ width: "20%", textAlign: "right", paddingRight: "1vw" }}>SCORE</div>
@@ -281,22 +281,22 @@ export default function Home() {
                 borderBottom: idx === 1 ? "none" : "1px solid rgba(0,0,0,0.03)",
                 opacity: score ? 1 : 0.4
               }}>
-                <div style={{ width: "15%", textAlign: "center", color: "#94a3b8", fontWeight: 800, fontSize: "clamp(1.8rem, 2.4vw, 3.5rem)" }}>
+                <div style={{ width: "15%", textAlign: "center", color: "#94a3b8", fontWeight: 800, fontSize: "clamp(2.2rem, 3vw, 4.5rem)" }}>
                   {idx + 4}
                 </div>
                 <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "2vw" }}>
                   <Avatar name={score?.participants?.first_name} gender={gender} size={4} showLetter={!!score} />
                   <div style={{ display: "flex", flexDirection: "column" }}>
                     {score ? (
-                      <strong style={{ color: "#1e293b", fontSize: "clamp(2.2rem, 3.2vw, 4.8rem)", fontWeight: 800 }}>
+                      <strong style={{ color: "#1e293b", fontSize: "clamp(2.8rem, 4vw, 5.5rem)", fontWeight: 800 }}>
                         {score.participants?.first_name}
                       </strong>
                     ) : (
-                      <strong style={{ background: "rgba(0,0,0,0.03)", borderRadius: "6px", width: "40%", height: "clamp(2.2rem, 3.2vw, 4.8rem)" }} />
+                      <strong style={{ background: "rgba(0,0,0,0.03)", borderRadius: "6px", width: "40%", height: "clamp(2.8rem, 4vw, 5.5rem)" }} />
                     )}
                   </div>
                 </div>
-                <div style={{ width: "20%", textAlign: "right", color: "#475569", fontWeight: 900, fontSize: "clamp(2.2rem, 3.2vw, 4.8rem)" }}>
+                <div style={{ width: "20%", textAlign: "right", color: "#475569", fontWeight: 900, fontSize: "clamp(2.8rem, 4vw, 5.5rem)" }}>
                   {score ? score.value : "—"}
                 </div>
               </div>
@@ -385,7 +385,7 @@ export default function Home() {
               </h1>
             </div>
 
-            <div style={{ textAlign: "right" }}>
+            <div style={{ textAlign: "right", paddingRight: "3vw" }}>
               <span style={{
                 display: "inline-block", padding: "1.5vh 1.5vw",
                 background: "rgba(255,255,255,0.5)", color: "#1e293b",
