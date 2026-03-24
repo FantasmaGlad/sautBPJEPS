@@ -243,30 +243,33 @@ export default function Home() {
         <h2 style={{
           textAlign: "center", color: themeColor, fontSize: "clamp(2.5rem, 3.5vw, 5rem)",
           fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", fontStyle: "normal",
-          marginBottom: "8vh", textShadow: "0 2px 10px rgba(0,0,0,0.05)"
+          marginTop: "1vh", marginBottom: "2vh", textShadow: "0 2px 10px rgba(0,0,0,0.05)"
         }}>
           {title}
         </h2>
 
-        {/* Podium Area (Top 3) */}
-        <div style={{
-          display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%",
-          height: "40vh", marginBottom: "8vh",
-        }}>
-          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%", height: "100%", paddingRight: "2.5vw" }}>
-            <PodiumCard score={top3[0]} rank={2} themeRGB={gender === "Homme" || gender === "H" ? "59,130,246" : "236,72,153"} height="55%" />
-            <PodiumCard score={top3[1]} rank={1} themeRGB={gender === "Homme" || gender === "H" ? "59,130,246" : "236,72,153"} height="75%" />
-            <PodiumCard score={top3[2]} rank={3} themeRGB={gender === "Homme" || gender === "H" ? "59,130,246" : "236,72,153"} height="40%" />
-          </div>
-        </div>
-
-        {/* Table Area (Ranks 4-5) */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+        {/* Vertically Centered Content Wrapper */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", width: "100%", paddingBottom: "2vh" }}>
+          
+          {/* Podium Area (Top 3) */}
           <div style={{
-            background: "rgba(255,255,255,0.5)", backdropFilter: "blur(10px)",
-            borderRadius: "2vh", padding: "1.5vh 3vw", border: "1px solid rgba(255,255,255,0.4)",
-            display: "flex", flexDirection: "column", gap: "1vh"
+            display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%",
+            height: "35vh", marginBottom: "3vh",
           }}>
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%", height: "100%", paddingRight: "2.5vw", paddingTop: "5vw" }}>
+              <PodiumCard score={top3[0]} rank={2} themeRGB={gender === "Homme" || gender === "H" ? "59,130,246" : "236,72,153"} height="55%" />
+              <PodiumCard score={top3[1]} rank={1} themeRGB={gender === "Homme" || gender === "H" ? "59,130,246" : "236,72,153"} height="75%" />
+              <PodiumCard score={top3[2]} rank={3} themeRGB={gender === "Homme" || gender === "H" ? "59,130,246" : "236,72,153"} height="40%" />
+            </div>
+          </div>
+
+          {/* Table Area (Ranks 4-5) */}
+          <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
+            <div style={{
+              background: "rgba(255,255,255,0.5)", backdropFilter: "blur(10px)",
+              borderRadius: "2vh", padding: "1.5vh 3vw", border: "1px solid rgba(255,255,255,0.4)",
+              display: "flex", flexDirection: "column", gap: "1vh"
+            }}>
             {/* Header Row */}
             <div style={{ display: "flex", color: "#64748b", fontSize: "clamp(1.8rem, 2.5vw, 3.2rem)", fontWeight: 800, borderBottom: "2px solid rgba(0,0,0,0.05)", paddingBottom: "1vh" }}>
               <div style={{ width: "15%", textAlign: "center" }}>RANG</div>
@@ -303,6 +306,7 @@ export default function Home() {
             ))}
           </div>
         </div>
+      </div>
       </div>
     );
   };
