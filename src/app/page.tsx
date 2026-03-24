@@ -124,7 +124,7 @@ export default function Home() {
         display: "flex", alignItems: "center", justifyContent: "center",
         background: isMale ? "linear-gradient(135deg, #3b82f6, #2563eb)" : "linear-gradient(135deg, #ec4899, #db2777)",
         color: "white", fontWeight: 900, fontSize: `${size * 0.45}vw`,
-        boxShadow: `0 1vh 2vh ${isMale ? "rgba(59,130,246,0.5)" : "rgba(236,72,153,0.5)"}`,
+        boxShadow: `0 0.5vh 1.5vh ${isMale ? "rgba(59,130,246,0.3)" : "rgba(236,72,153,0.3)"}`,
         zIndex: 5, flexShrink: 0
       }}>
         {showLetter ? letter : ""}
@@ -135,7 +135,10 @@ export default function Home() {
   /* === Podium Cards === */
   const PodiumCard = ({ score, rank, themeRGB, height }: { score: any; rank: number; themeRGB: string; height: string }) => {
     const depth = "2.5vw"; 
-    const zIndex = rank === 1 ? 10 : 5;
+    let zIndex = 5;
+    if (rank === 2) zIndex = 5;
+    if (rank === 1) zIndex = 10;
+    if (rank === 3) zIndex = 15;
     
     // Extracted colors
     const topColor = rank === 1 ? `rgba(${themeRGB}, 0.15)` : `rgba(${themeRGB}, 0.25)`;
@@ -205,15 +208,15 @@ export default function Home() {
             </span>
             {score && (
               <>
+                <span style={{ fontSize: "clamp(1.8rem, 2.8vw, 4rem)", fontWeight: 900, color: "#1e293b", marginTop: "1vh", lineHeight: 1.1 }}>
+                  {score.value}
+                </span>
                 <span style={{
-                  fontSize: "clamp(1.2rem, 1.8vw, 2.5rem)", fontWeight: 800, color: "#1e293b",
+                  fontSize: "clamp(1.3rem, 2vw, 2.8rem)", fontWeight: 700, color: "#64748b",
                   whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "90%", textAlign: "center",
-                  lineHeight: 1.2, marginTop: "1vh"
+                  lineHeight: 1.2, marginTop: "0.5vh"
                 }}>
                   {score.participants?.first_name}
-                </span>
-                <span style={{ fontSize: "clamp(1.4rem, 2.2vw, 3.5rem)", fontWeight: 900, color: "#475569", marginTop: "0.5vh" }}>
-                  {score.value}
                 </span>
               </>
             )}
@@ -248,7 +251,7 @@ export default function Home() {
         {/* Podium Area (Top 3) */}
         <div style={{
           display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%",
-          height: "40vh", marginBottom: "5vh",
+          height: "40vh", marginBottom: "8vh",
         }}>
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%", height: "100%", paddingRight: "2.5vw" }}>
             <PodiumCard score={top3[0]} rank={2} themeRGB={gender === "Homme" || gender === "H" ? "59,130,246" : "236,72,153"} height="55%" />
@@ -267,8 +270,8 @@ export default function Home() {
             {/* Header Row */}
             <div style={{ display: "flex", color: "#64748b", fontSize: "clamp(1.4rem, 1.8vw, 2.5rem)", fontWeight: 800, borderBottom: "2px solid rgba(0,0,0,0.05)", paddingBottom: "1vh" }}>
               <div style={{ width: "15%", textAlign: "center" }}>RANG</div>
-              <div style={{ flex: 1 }}>ATHLÈTE</div>
-              <div style={{ width: "20%", textAlign: "right" }}>SCORE</div>
+              <div style={{ flex: 1, paddingLeft: "6vw" }}>ATHLÈTE</div>
+              <div style={{ width: "20%", textAlign: "right", paddingRight: "1vw" }}>SCORE</div>
             </div>
 
             {/* Always 2 Rows */}
@@ -363,7 +366,7 @@ export default function Home() {
           {/* Main Header (Grid to perfectly center title and keep date right) */}
           <header style={{
             display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center",
-            width: "100%", padding: "0 2vw 2vh", borderBottom: "1px solid rgba(0,0,0,0.05)"
+            width: "100%", padding: "2vh 2vw 3vh", borderBottom: "1px solid rgba(0,0,0,0.05)"
           }}>
             <div style={{ textAlign: "left" }}>
               <a href="/admin" target="_blank" style={{
