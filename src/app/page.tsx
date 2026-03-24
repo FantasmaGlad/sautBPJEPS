@@ -87,6 +87,10 @@ export default function Home() {
       } else {
         // Sponsor is currently visible
         const sponsor = sponsors[currentSponsorIndex];
+
+        // If it's a video, the onEnded event will handle hiding it
+        if (sponsor?.media_type === "video") return;
+
         const sponsorDurationMs = (sponsor?.duration_sec || 5) * 1000;
         const t = setTimeout(() => {
            setIsSponsorVisible(false); // Hide image, triggering breakDelayMs next
@@ -243,7 +247,7 @@ export default function Home() {
         <h2 style={{
           textAlign: "center", color: themeColor, fontSize: "clamp(2.5rem, 3.5vw, 5rem)",
           fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", fontStyle: "normal",
-          marginTop: "1vh", marginBottom: "2vh", textShadow: "0 2px 10px rgba(0,0,0,0.05)"
+          marginTop: "0", marginBottom: "2vh", textShadow: "0 2px 10px rgba(0,0,0,0.05)"
         }}>
           {title}
         </h2>
@@ -343,7 +347,8 @@ export default function Home() {
             sponsors[currentSponsorIndex].media_type === "video" ? (
               <video 
                  src={sponsors[currentSponsorIndex].media_url} 
-                 autoPlay muted loop 
+                 autoPlay muted playsInline
+                 onEnded={() => setIsSponsorVisible(false)}
                  style={{ width: "100%", height: "100%", objectFit: "cover", animation: "fadeInMedia 0.5s ease" }} 
               />
             ) : (
@@ -355,6 +360,18 @@ export default function Home() {
               />
             )
           )}
+        </div>
+
+        {/* === Media Preload Cache === */}
+        <div style={{ display: "none" }}>
+          {sponsors.map((sponsor, idx) => (
+            sponsor.media_type === "video" ? (
+              <video key={`preload-${idx}`} preload="auto" src={sponsor.media_url} />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={`preload-${idx}`} src={sponsor.media_url} alt="" />
+            )
+          ))}
         </div>
 
         {/* Geometric Animated Background */}
@@ -402,7 +419,7 @@ export default function Home() {
           </header>
 
           {/* Leaderboard Columns */}
-          <div style={{ display: "flex", flex: 1, gap: "4vw", paddingTop: "4vh" }}>
+          <div style={{ display: "flex", flex: 1, gap: "4vw", paddingTop: "1vh" }}>
             
             <div style={{ flex: 1, height: "100%", background: "linear-gradient(180deg, rgba(232,237,244,0) 0%, rgba(232,237,244,0.8) 100%)", borderRadius: "3vh" }}>
               <LeaderboardColumn title="Classement Masculin" data={topHommes} themeColor="#3b82f6" gender="Homme" />
