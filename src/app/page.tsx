@@ -365,7 +365,16 @@ export default function Home() {
             display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center",
             width: "100%", padding: "0 2vw 2vh", borderBottom: "1px solid rgba(0,0,0,0.05)"
           }}>
-            <div />{/* Empty left column */}
+            <div style={{ textAlign: "left" }}>
+              <a href="/admin" target="_blank" style={{
+                display: "inline-block", padding: "1.5vh 1.5vw",
+                background: "rgba(255,255,255,0.5)", color: "#1e293b", textDecoration: "none",
+                borderRadius: "1vh", fontSize: "1vw", fontWeight: 700, backdropFilter: "blur(10px)",
+                border: "1px solid rgba(255,255,255,0.5)", transition: "all 0.2s"
+              }}>
+                Panel Admin
+              </a>
+            </div>
             
             <div style={{ textAlign: "center" }}>
               <h1 style={{ fontSize: "clamp(3rem, 4vw, 6rem)", fontWeight: 900, color: "#1e293b", letterSpacing: "-0.02em", margin: 0, textTransform: "uppercase" }}>
@@ -374,7 +383,12 @@ export default function Home() {
             </div>
 
             <div style={{ textAlign: "right" }}>
-              <span style={{ fontSize: "clamp(2rem, 2.5vw, 4rem)", fontWeight: 800, color: "#64748b", background: "rgba(255,255,255,0.6)", padding: "1vh 2vw", borderRadius: "1.5vh" }}>
+              <span style={{
+                display: "inline-block", padding: "1.5vh 1.5vw",
+                background: "rgba(255,255,255,0.5)", color: "#1e293b",
+                borderRadius: "1vh", fontSize: "1vw", fontWeight: 700, backdropFilter: "blur(10px)",
+                border: "1px solid rgba(255,255,255,0.5)"
+              }}>
                 {new Date().toLocaleDateString("fr-FR")}
               </span>
             </div>
@@ -395,14 +409,7 @@ export default function Home() {
 
           </div>
 
-          <a href="/admin" target="_blank" style={{
-            position: "absolute", top: "3vh", left: "3vw", padding: "1.5vh 1.5vw",
-            background: "rgba(255,255,255,0.5)", color: "#1e293b", textDecoration: "none",
-            borderRadius: "1vh", fontSize: "1vw", fontWeight: 700, backdropFilter: "blur(10px)",
-            border: "1px solid rgba(255,255,255,0.5)", transition: "all 0.2s", zIndex: 100,
-          }}>
-            Panel Admin
-          </a>
+
         </div>
 
         {/* Animations */}

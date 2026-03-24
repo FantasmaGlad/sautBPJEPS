@@ -276,10 +276,9 @@ export default function AdminPage() {
       showStatus(`Erreur BD: ${dbError.message}`); 
     } else {
       showStatus("Média sponsor ajouté avec succès !");
-      setSponsorFile(null); 
+      // On ne vide pas setSponsorFile(null) ni le champ pour "garder en cache pour les fois suivantes"
       setSponsorName("");
       setSponsorOrder((parseInt(sponsorOrder) + 1).toString());
-      if (fileInputRef.current) fileInputRef.current.value = "";
       fetchData(); 
     }
   };
@@ -681,7 +680,19 @@ export default function AdminPage() {
                     accept="image/*,video/*,.gif"
                     required
                     ref={fileInputRef}
-                    onChange={(e) => setSponsorFile(e.target.files ? e.target.files[0] : null)}
+                    onChange={(e) => {
+                      const file = e.target.files ? e.target.files[0] : null;
+                      setSponsorFile(file);
+                      if (file && (file.type.startsWith('video/') || file.name.endsWith('.mp4') || file.name.endsWith('.webm'))) {
+                        const video = document.createElement('video');
+                        video.preload = 'metadata';
+                        video.onloadedmetadata = () => {
+                          window.URL.revokeObjectURL(video.src);
+                          setSponsorDuration(Math.round(video.duration).toString());
+                        };
+                        video.src = URL.createObjectURL(file);
+                      }
+                    }}
                     style={{ ...inputStyle, padding: "0.65rem 1.25rem" }}
                   />
                   <input 
