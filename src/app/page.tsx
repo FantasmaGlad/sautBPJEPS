@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Head from "next/head";
 import { supabase } from "@/lib/supabase";
 
@@ -12,6 +12,7 @@ export default function Home() {
   // === SPONSOR CAROUSEL STATE ===
   const [sponsors, setSponsors] = useState<any[]>([]);
   const [globalSettings, setGlobalSettings] = useState<any>(null);
+  const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   
   // Timer state
   const [displayMode, setDisplayMode] = useState<'leaderboard' | 'carousel'>('leaderboard');
@@ -25,7 +26,27 @@ export default function Home() {
     const channel = supabase
       .channel("public-db-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "participants" }, fetchData)
-      .on("postgres_changes", { event: "*", schema: "public", table: "scores" }, fetchData)
+      .on("postgres_changes", { event: "*", schema: "public", table: "scores" }, async (payload) => {
+        // Optimisation : Requête ciblée uniquement sur la seule ligne qui change (Au lieu de télécharger tout)
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const { data: newScore } = await supabase
+             .from("scores")
+             .select("*, participants(*)")
+             .eq("id", payload.new.id)
+             .single();
+             
+          if (newScore && newScore.is_active) {
+            setScores(prev => {
+              const filtered = prev.filter(s => s.id !== newScore.id);
+              return [...filtered, newScore];
+            });
+          } else if (newScore && !newScore.is_active) {
+            setScores(prev => prev.filter(s => s.id !== newScore.id));
+          }
+        } else if (payload.eventType === 'DELETE') {
+           setScores(prev => prev.filter(s => s.id !== payload.old.id));
+        }
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "sponsors" }, fetchSponsorsAndSettings)
       .on("postgres_changes", { event: "*", schema: "public", table: "settings" }, fetchSponsorsAndSettings)
       .subscribe();
@@ -50,6 +71,7 @@ export default function Home() {
       supabase.from("sponsors").select("*").eq("is_active", true).order("display_order", { ascending: true }),
       supabase.from("settings").select("*").limit(1).single()
     ]);
+    
     if (spRes.data) setSponsors(spRes.data);
     if (setRes.data) setGlobalSettings(setRes.data);
   };
@@ -88,8 +110,15 @@ export default function Home() {
         // Sponsor is currently visible
         const sponsor = sponsors[currentSponsorIndex];
 
-        // If it's a video, the onEnded event will handle hiding it
-        if (sponsor?.media_type === "video") return;
+        // Trigger video play if it's a video
+        if (sponsor?.media_type === "video") {
+           const vidInfo = videoRefs.current[currentSponsorIndex];
+           if (vidInfo) {
+              vidInfo.currentTime = 0;
+              vidInfo.play().catch(e => console.error("TV AutoPlay blocked:", e));
+           }
+           return; // the onEnded event will handle hiding it
+        }
 
         const sponsorDurationMs = (sponsor?.duration_sec || 5) * 1000;
         const t = setTimeout(() => {
@@ -343,35 +372,46 @@ export default function Home() {
           transition: "opacity 0.8s ease-in-out",
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
-          {displayMode === 'carousel' && sponsors[currentSponsorIndex] && isSponsorVisible && (
-            sponsors[currentSponsorIndex].media_type === "video" ? (
-              <video 
-                 src={sponsors[currentSponsorIndex].media_url} 
-                 autoPlay muted playsInline
-                 onEnded={() => setIsSponsorVisible(false)}
-                 style={{ width: "100%", height: "100%", objectFit: "cover", animation: "fadeInMedia 0.5s ease" }} 
-              />
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                 src={sponsors[currentSponsorIndex].media_url} 
-                 alt={sponsors[currentSponsorIndex].name}
-                 style={{ width: "100%", height: "100%", objectFit: "contain", animation: "fadeInMedia 0.5s ease" }} 
-              />
-            )
-          )}
-        </div>
-
-        {/* === Media Preload Cache === */}
-        <div style={{ display: "none" }}>
-          {sponsors.map((sponsor, idx) => (
-            sponsor.media_type === "video" ? (
-              <video key={`preload-${idx}`} preload="auto" src={sponsor.media_url} />
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={`preload-${idx}`} src={sponsor.media_url} alt="" />
-            )
-          ))}
+          {/* Optimisation TV : Tous les médias restent montés dans le DOM en background pour exploiter le buffer */}
+          {sponsors.map((sponsor, idx) => {
+            const isActive = displayMode === 'carousel' && isSponsorVisible && currentSponsorIndex === idx;
+            
+            if (sponsor.media_type === "video") {
+              return (
+                <video 
+                   key={`media-${idx}`}
+                   ref={el => { videoRefs.current[idx] = el; }}
+                   src={sponsor.media_url} 
+                   muted playsInline preload="auto"
+                   onEnded={() => { if (isActive) setIsSponsorVisible(false); }}
+                   style={{ 
+                     position: "absolute",
+                     width: "100%", height: "100%", objectFit: "cover", 
+                     opacity: isActive ? 1 : 0,
+                     transition: "opacity 0.5s ease",
+                     // visibility hidden stoppe parfois le buffer sur les vieilles TV, mais évite de cliquer
+                     pointerEvents: "none"
+                   }} 
+                />
+              );
+            } else {
+              return (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                   key={`media-${idx}`}
+                   src={sponsor.media_url} 
+                   alt={sponsor.name}
+                   style={{ 
+                     position: "absolute",
+                     width: "100%", height: "100%", objectFit: "contain",
+                     opacity: isActive ? 1 : 0,
+                     transition: "opacity 0.5s ease",
+                     pointerEvents: "none"
+                   }} 
+                />
+              );
+            }
+          })}
         </div>
 
         {/* Geometric Animated Background */}
