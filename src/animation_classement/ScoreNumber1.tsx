@@ -75,10 +75,12 @@ function generateParticles(colors: string[]): Particle[] {
 
 const ConfettiLayer: React.FC<{ frame: number; colors: string[] }> = ({ frame, colors }) => {
   const confettiStart = 35;
+  
+  const particles = React.useMemo(() => generateParticles(colors), [colors]);
+
   if (frame < confettiStart) return null;
 
   const t = frame - confettiStart;
-  const particles = React.useMemo(() => generateParticles(colors), [colors.join()]);
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", pointerEvents: "none" }}>
