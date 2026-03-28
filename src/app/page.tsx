@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import Head from "next/head";
 import { supabase } from "@/lib/supabase";
 import { getWeightedScore } from "@/lib/ponderation";
+import { ScoreOverlay } from "@/components/ScoreOverlay";
 
 export default function Home() {
   const [participants, setParticipants] = useState<any[]>([]);
@@ -192,6 +193,48 @@ export default function Home() {
   const topHommes = getBestScoresByGender("Homme");
   const topFemmes = getBestScoresByGender("Femme");
 
+  /* === NOUVEAU LEADER CELEBRATION === */
+  const [leaderCelebration, setLeaderCelebration] = useState<{athleteName: string, score: string, theme: "homme"|"femme"} | null>(null);
+  const prevTopHommeRef = useRef<any>(null);
+  const prevTopFemmeRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (scores.length === 0 || loading) return;
+
+    if (topHommes.length > 0) {
+      const currentTop = topHommes[0];
+      const prevTop = prevTopHommeRef.current;
+      if (prevTop && currentTop.id !== prevTop.id) {
+         setLeaderCelebration({
+            athleteName: `${currentTop.participants?.first_name} ${currentTop.participants?.last_name}`.toUpperCase(),
+            score: (currentTop.weightedValue || currentTop.value).toString(),
+            theme: "homme"
+         });
+         setDisplayMode("leaderboard");
+         setCurrentSponsorIndex(0);
+         setIsSponsorVisible(false);
+      }
+      prevTopHommeRef.current = currentTop;
+    }
+
+    if (topFemmes.length > 0) {
+      const currentTop = topFemmes[0];
+      const prevTop = prevTopFemmeRef.current;
+      if (prevTop && currentTop.id !== prevTop.id) {
+         setLeaderCelebration({
+            athleteName: `${currentTop.participants?.first_name} ${currentTop.participants?.last_name}`.toUpperCase(),
+            score: (currentTop.weightedValue || currentTop.value).toString(),
+            theme: "femme"
+         });
+         setDisplayMode("leaderboard");
+         setCurrentSponsorIndex(0);
+         setIsSponsorVisible(false);
+      }
+      prevTopFemmeRef.current = currentTop;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scores]);
+
   /* === Avatars === */
   const Avatar = ({ name, gender, size = 6, showLetter = true }: { name?: string; gender: string; size?: number; showLetter?: boolean }) => {
     const isMale = gender === "Homme" || gender === "H";
@@ -326,7 +369,7 @@ export default function Home() {
         <h2 style={{
           textAlign: "center", color: themeColor, fontSize: "clamp(2.5rem, 3.5vw, 5rem)",
           fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", fontStyle: "normal",
-          marginTop: "0", marginBottom: "2vh", textShadow: "0 2px 10px rgba(0,0,0,0.05)"
+          marginTop: "0", marginBottom: "4vh", textShadow: "0 2px 10px rgba(0,0,0,0.05)"
         }}>
           {title}
         </h2>
@@ -339,7 +382,7 @@ export default function Home() {
             display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%",
             height: "35vh", marginBottom: "3vh",
           }}>
-            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%", height: "100%", paddingRight: "2.5vw", paddingTop: "5vw" }}>
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%", height: "100%", paddingRight: "2.5vw", paddingTop: "8vw" }}>
               <PodiumCard score={top3[0]} rank={2} themeRGB={gender === "Homme" || gender === "H" ? "59,130,246" : "236,72,153"} height="55%" />
               <PodiumCard score={top3[1]} rank={1} themeRGB={gender === "Homme" || gender === "H" ? "59,130,246" : "236,72,153"} height="75%" />
               <PodiumCard score={top3[2]} rank={3} themeRGB={gender === "Homme" || gender === "H" ? "59,130,246" : "236,72,153"} height="40%" />
@@ -541,6 +584,15 @@ export default function Home() {
 
 
         </div>
+
+        {leaderCelebration && (
+          <ScoreOverlay
+            athleteName={leaderCelebration.athleteName}
+            score={leaderCelebration.score}
+            theme={leaderCelebration.theme}
+            onEnd={() => setLeaderCelebration(null)}
+          />
+        )}
 
         {/* Animations */}
         <style>{`
