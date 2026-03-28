@@ -12,7 +12,8 @@ export default function Home() {
   // === SPONSOR CAROUSEL STATE ===
   const [sponsors, setSponsors] = useState<any[]>([]);
   const [globalSettings, setGlobalSettings] = useState<any>(null);
-  const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [mediaCache, setMediaCache] = useState<Record<string, string>>({});
   
   // Timer state
   const [displayMode, setDisplayMode] = useState<'leaderboard' | 'carousel'>('leaderboard');
@@ -76,6 +77,28 @@ export default function Home() {
     if (setRes.data) setGlobalSettings(setRes.data);
   };
 
+  // Préchargement des Blobs en mémoire (RAM) pour zéro consommation réseau et compatibilité max
+  useEffect(() => {
+    sponsors.forEach((sponsor) => {
+      setMediaCache((prev) => {
+        if (prev[sponsor.media_url]) return prev;
+        
+        fetch(sponsor.media_url)
+          .then((res) => res.blob())
+          .then((blob) => {
+             const objectUrl = URL.createObjectURL(blob);
+             setMediaCache((current) => ({ ...current, [sponsor.media_url]: objectUrl }));
+          })
+          .catch((err) => {
+             console.error("Impossible de fetch la vidéo TV, fallback vers URL directe", err);
+             setMediaCache((current) => ({ ...current, [sponsor.media_url]: sponsor.media_url }));
+          });
+          
+        return { ...prev, [sponsor.media_url]: "loading" };
+      });
+    });
+  }, [sponsors]);
+
   // === CAROUSEL TIMER ENGINE ===
   useEffect(() => {
     if (sponsors.length === 0 || !globalSettings) return;
@@ -112,12 +135,24 @@ export default function Home() {
 
         // Trigger video play if it's a video
         if (sponsor?.media_type === "video") {
-           const vidInfo = videoRefs.current[currentSponsorIndex];
+           const vidInfo = videoRef.current;
            if (vidInfo) {
               vidInfo.currentTime = 0;
-              vidInfo.play().catch(e => console.error("TV AutoPlay blocked:", e));
+              const playPromise = vidInfo.play();
+              if (playPromise !== undefined) {
+                 playPromise.catch(e => console.error("TV AutoPlay blocked:", e));
+              }
            }
-           return; // the onEnded event will handle hiding it
+           
+           // FALLBACK TIMER (Sécurité absolue Smart TV)
+           // Si la vidéo plante et "onEnded" n'est jamais appelé, on force le passage
+           // après duration_sec + 2 secondes de marge d'erreur.
+           const fallbackDurationMs = (sponsor?.duration_sec || 10) * 1000 + 2000;
+           const safeTimer = setTimeout(() => {
+              setIsSponsorVisible(false);
+           }, fallbackDurationMs);
+           
+           return () => clearTimeout(safeTimer);
         }
 
         const sponsorDurationMs = (sponsor?.duration_sec || 5) * 1000;
@@ -372,46 +407,51 @@ export default function Home() {
           transition: "opacity 0.8s ease-in-out",
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
-          {/* Optimisation TV : Tous les médias restent montés dans le DOM en background pour exploiter le buffer */}
-          {sponsors.map((sponsor, idx) => {
-            const isActive = displayMode === 'carousel' && isSponsorVisible && currentSponsorIndex === idx;
-            
-            if (sponsor.media_type === "video") {
-              return (
+          {/* Optimisation TV : Un SEUL lecteur vidéo/image avec source dynamique Blob depuis la RAM */}
+          {(() => {
+            const activeSponsor = sponsors[currentSponsorIndex];
+            if (!activeSponsor) return null;
+
+            const isVideo = activeSponsor.media_type === "video";
+            const currentSrc = mediaCache[activeSponsor.media_url] && mediaCache[activeSponsor.media_url] !== "loading" 
+                 ? mediaCache[activeSponsor.media_url] 
+                 : activeSponsor.media_url;
+
+            return (
+              <>
                 <video 
-                   key={`media-${idx}`}
-                   ref={el => { videoRefs.current[idx] = el; }}
-                   src={sponsor.media_url} 
+                   ref={videoRef}
+                   src={isVideo ? currentSrc : undefined} 
+                   autoPlay={isVideo}
                    muted playsInline preload="auto"
-                   onEnded={() => { if (isActive) setIsSponsorVisible(false); }}
+                   onEnded={() => { 
+                      if (displayMode === 'carousel' && isSponsorVisible) setIsSponsorVisible(false); 
+                   }}
                    style={{ 
                      position: "absolute",
                      width: "100%", height: "100%", objectFit: "cover", 
-                     opacity: isActive ? 1 : 0,
+                     opacity: (isVideo && isSponsorVisible) ? 1 : 0,
                      transition: "opacity 0.5s ease",
-                     // visibility hidden stoppe parfois le buffer sur les vieilles TV, mais évite de cliquer
-                     pointerEvents: "none"
+                     pointerEvents: "none",
+                     // Cache le lecteur si ce n'est pas une vidéo pour libérer le décodage matériel
+                     display: isVideo ? "block" : "none"
                    }} 
                 />
-              );
-            } else {
-              return (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
-                   key={`media-${idx}`}
-                   src={sponsor.media_url} 
-                   alt={sponsor.name}
+                   src={!isVideo ? currentSrc : undefined} 
+                   alt="Sponsor Media"
                    style={{ 
                      position: "absolute",
                      width: "100%", height: "100%", objectFit: "contain",
-                     opacity: isActive ? 1 : 0,
+                     opacity: (!isVideo && isSponsorVisible) ? 1 : 0,
                      transition: "opacity 0.5s ease",
-                     pointerEvents: "none"
+                     pointerEvents: "none",
+                     display: !isVideo ? "block" : "none"
                    }} 
                 />
-              );
-            }
-          })}
+              </>
+            );
+          })()}
         </div>
 
         {/* Geometric Animated Background */}
