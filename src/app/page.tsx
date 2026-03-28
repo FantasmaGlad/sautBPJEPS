@@ -295,7 +295,8 @@ export default function Home() {
           width: "100%",
           display: "flex",
           justifyContent: "center",
-          transform: `translateX(calc(${depth} / 2))`
+          transform: `translateX(calc(${depth} / 2))`,
+          zIndex: 20
         }}>
           {score ? (
             <Avatar name={score.participants?.first_name} gender={score.participants?.category} size={6} avatarUrl={score.participants?.avatar_url} />
