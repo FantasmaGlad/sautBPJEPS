@@ -104,3 +104,44 @@ export const getAvatarPublicUrl = (path: string): string => {
   const { data } = supabase.storage.from('avatars').getPublicUrl(path);
   return data.publicUrl;
 };
+
+/**
+ * Liste tous les fichiers disponibles dans le bucket 'avatars' (la Galerie)
+ * @returns Tableau d'objets avec path et infos
+ */
+export const listAvatars = async () => {
+  const { data, error } = await supabase.storage.from('avatars').list();
+  if (error) {
+    console.error("Erreur listing avatars : ", error);
+    return [];
+  }
+  // Filtrer pour ne garder que les fichiers (pas de .emptyFolderPlaceholder etc.)
+  return data.filter(file => file.name && file.name !== '.emptyFolderPlaceholder');
+};
+
+/**
+ * Uploade un nouvel avatar générique dans la Galerie
+ * @param file Le fichier PNG/JPG sélectionné
+ * @returns Le path du fichier uploadé
+ */
+export const uploadToGallery = async (file: File): Promise<string> => {
+  try {
+    const compressedBlob = await compressAvatar(file);
+    const randomHash = Math.random().toString(36).substring(7);
+    const fileName = `gallery_${Date.now()}_${randomHash}.webp`;
+
+    const { data, error } = await supabase.storage
+      .from('avatars')
+      .upload(fileName, compressedBlob, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: 'image/webp',
+      });
+
+    if (error) throw error;
+    return data.path;
+  } catch (err) {
+    console.error("Erreur d'upload vers galerie : ", err);
+    throw err;
+  }
+};

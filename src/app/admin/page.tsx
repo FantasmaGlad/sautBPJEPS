@@ -1,9 +1,11 @@
+/* eslint-disable @next/next/no-img-element */
+/* eslint-disable react/no-unescaped-entities */
 "use client";
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { uploadAvatar, deleteAvatar, getAvatarPublicUrl } from "@/lib/avatars";
+import { uploadAvatar, deleteAvatar, getAvatarPublicUrl, listAvatars, uploadToGallery } from "@/lib/avatars";
 
 /* ─── Shared Styles ─── */
 const cardStyle: React.CSSProperties = {
@@ -123,7 +125,7 @@ export default function AdminPage() {
   const [loadingAuth, setLoadingAuth] = useState(true);
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<'athletes' | 'sponsors'>('athletes');
+  const [activeTab, setActiveTab] = useState<'athletes' | 'sponsors' | 'avatars'>('athletes');
 
   // Participants Data
   const [firstName, setFirstName] = useState("");
@@ -136,6 +138,10 @@ export default function AdminPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [historySearchQuery, setHistorySearchQuery] = useState(""); // Add history search
+  
+  // Gallery
+  const [galleryAvatars, setGalleryAvatars] = useState<any[]>([]);
+
   const [editingParticipant, setEditingParticipant] = useState<any>(null);
   
   const [uploadingAvatarId, setUploadingAvatarId] = useState<string | null>(null);
@@ -160,6 +166,7 @@ export default function AdminPage() {
 
   const [statusMsg, setStatusMsg] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryFileInputRef = useRef<HTMLInputElement>(null);
 
   const AGE_CATEGORIES = ["U18", "U23", "M35", "M40", "M45", "M50", "M55", "M60", "M65", "M70", "M75", "M80"];
 
@@ -193,6 +200,10 @@ export default function AdminPage() {
       setSettingBreakMin(setObj.carousel_interval_min?.toString() || "3");
       setSettingDelaySec(setObj.carousel_duration_sec?.toString() || "1"); // We map carousel_duration_sec to time between slides
     }
+
+    // Load Gallery avatars
+    const files = await listAvatars();
+    setGalleryAvatars(files);
   };
 
   const handleLogout = async () => { await supabase.auth.signOut(); router.push("/"); };
@@ -223,51 +234,42 @@ export default function AdminPage() {
     e.preventDefault();
     if (!editingParticipant) return;
     const { error } = await supabase.from("participants")
-      .update({ first_name: editingParticipant.first_name, last_name: editingParticipant.last_name, category: editingParticipant.category, age_category: editingParticipant.age_category })
+      .update({ 
+         first_name: editingParticipant.first_name, 
+         last_name: editingParticipant.last_name, 
+         category: editingParticipant.category, 
+         age_category: editingParticipant.age_category,
+         avatar_url: editingParticipant.avatar_url 
+      })
       .eq("id", editingParticipant.id);
     if (error) showStatus(`Erreur: ${error.message}`);
     else { showStatus("Profil mis à jour !"); setEditingParticipant(null); fetchData(); }
   };
 
-  const handleAvatarUpload = async (participant: any, file: File | undefined) => {
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (!file) return;
-    setUploadingAvatarId(participant.id);
+    
     try {
-      const path = await uploadAvatar(file, participant.id);
-      
-      // Update DB with the new path and potentially remove the old one
-      if (participant.avatar_url) {
-        await deleteAvatar(participant.avatar_url);
-      }
-      
-      const { error } = await supabase.from("participants").update({ avatar_url: path }).eq("id", participant.id);
-      if (error) throw error;
-      
-      showStatus(`Avatar mis à jour pour ${participant.first_name}`);
-      fetchData();
-    } catch (err: any) {
+      showStatus("Envoi dans la galerie en cours...");
+      await uploadToGallery(file);
+      showStatus("Avatar ajouté à la galerie !");
+      fetchData(); // Reloader la galerie
+    } catch(err: any) {
       showStatus(`Erreur d'upload: ${err.message}`);
     } finally {
-      // Ensure specific ID component stops reacting
-      const avatarInput = document.getElementById(`avatar-upload-${participant.id}`) as HTMLInputElement;
-      if (avatarInput) avatarInput.value = "";
-      setUploadingAvatarId(null);
+      if (galleryFileInputRef.current) galleryFileInputRef.current.value = "";
     }
   };
 
-  const handleAvatarDelete = async (participantId: string, currentPath: string | null) => {
-    if (!currentPath || !window.confirm("Voulez-vous supprimer l'avatar actuel de ce profil ?")) return;
-    setUploadingAvatarId(participantId);
+  const handleGalleryDelete = async (path: string) => {
+    if(!window.confirm("Supprimer cet avatar de la galerie ? Attention, les athlètes utilisant cet avatar auront un espace vide jusqu'à leur prochaine mise à jour.")) return;
     try {
-      await deleteAvatar(currentPath);
-      const { error } = await supabase.from("participants").update({ avatar_url: null }).eq("id", participantId);
-      if (error) throw error;
-      showStatus("Avatar supprimé");
+      await deleteAvatar(path);
+      showStatus("Avatar supprimé de la galerie.");
       fetchData();
-    } catch (err: any) {
+    } catch(err: any) {
       showStatus(`Erreur de suppression: ${err.message}`);
-    } finally {
-      setUploadingAvatarId(null);
     }
   };
 
@@ -463,6 +465,15 @@ export default function AdminPage() {
           }}>
             Médias & Sponsors
           </button>
+          <button onClick={() => setActiveTab('avatars')} style={{
+            padding: "0.75rem 1.75rem", borderRadius: "8px", fontWeight: 700, fontSize: "1rem", cursor: "pointer", border: "none",
+            background: activeTab === 'avatars' ? "white" : "transparent",
+            color: activeTab === 'avatars' ? "#10b981" : "#64748b",
+            boxShadow: activeTab === 'avatars' ? "0 2px 10px rgba(0,0,0,0.05)" : "none",
+            transition: "all 0.2s"
+          }}>
+            Bibliothèque d'Avatars
+          </button>
         </div>
       </div>
 
@@ -516,8 +527,34 @@ export default function AdminPage() {
                   <select value={editingParticipant.age_category || 'U18'} onChange={e => setEditingParticipant({...editingParticipant, age_category: e.target.value})} style={{...inputStyle, width: "auto", flex: "0 0 auto"}}>
                     {AGE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
-                  <button type="submit" style={{...btnPrimary, padding: "0.7rem 1.25rem", fontSize: "0.95rem"}}>Sauvegarder</button>
-                  <button type="button" onClick={() => setEditingParticipant(null)} style={{ padding: "0.7rem 1.25rem", background: "transparent", color: "#64748b", border: "none", cursor: "pointer", fontSize: "0.95rem", fontWeight: 600 }}>Annuler</button>
+                  
+                  {/* AJOUT GALERIE POUR SELECTIONNER AVATAR */}
+                  <div style={{ width: "100%", marginTop: "0.5rem" }}>
+                    <label style={{ display: "block", fontSize: "0.9rem", color: "#64748b", marginBottom: "8px", fontWeight: 600 }}>Choisir un avatar depuis la bibliothèque</label>
+                    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", maxHeight: "150px", overflowY: "auto", padding: "10px", background: "rgba(255,255,255,0.5)", borderRadius: "8px", border: "1px solid rgba(0,0,0,0.05)" }}>
+                       <div 
+                         onClick={() => setEditingParticipant({...editingParticipant, avatar_url: null})}
+                         title="Aucun avatar"
+                         style={{ flexShrink: 0, width: "45px", height: "45px", borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", border: !editingParticipant.avatar_url ? "3px solid #3b82f6" : "none" }}>
+                         ❌
+                       </div>
+                       {galleryAvatars.map((file) => (
+                         <img 
+                           key={file.name}
+                           src={getAvatarPublicUrl(file.name)}
+                           alt={file.name}
+                           onClick={() => setEditingParticipant({...editingParticipant, avatar_url: file.name})}
+                           style={{ flexShrink: 0, width: "45px", height: "45px", borderRadius: "50%", objectFit: "cover", cursor: "pointer", border: editingParticipant.avatar_url === file.name ? "3px solid #3b82f6" : "2px solid transparent", transition: "all 0.2s" }} 
+                         />
+                       ))}
+                       {galleryAvatars.length === 0 && <span style={{ color: "#94a3b8", fontSize: "0.85rem", alignSelf: "center", fontStyle: "italic", marginLeft: "10px" }}>Aucun avatar dans la bibliothèque. Allez dans l'onglet Avatars !</span>}
+                    </div>
+                  </div>
+
+                  <div style={{ width: "100%", display: "flex", gap: "10px", marginTop: "10px" }}>
+                    <button type="submit" style={{...btnPrimary, padding: "0.7rem 1.25rem", fontSize: "0.95rem"}}>Sauvegarder</button>
+                    <button type="button" onClick={() => setEditingParticipant(null)} style={{ padding: "0.7rem 1.25rem", background: "transparent", color: "#64748b", border: "none", cursor: "pointer", fontSize: "0.95rem", fontWeight: 600 }}>Annuler</button>
+                  </div>
                 </form>
               )}
 
@@ -542,27 +579,6 @@ export default function AdminPage() {
                               <Avatar name={p.first_name} gender={p.category} size={40} avatarUrl={p.avatar_url} />
                               <div style={{ display: "flex", flexDirection: "column" }}>
                                 <strong style={{ color: "#1e293b", fontSize: "1.05rem" }}>{p.last_name} {p.first_name}</strong>
-                                <div style={{ display: "flex", gap: "0.5rem", marginTop: "4px" }}>
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    style={{ display: "none" }}
-                                    id={`avatar-upload-${p.id}`}
-                                    onChange={(e) => handleAvatarUpload(p, e.target.files?.[0])}
-                                  />
-                                  <label htmlFor={`avatar-upload-${p.id}`} style={{ fontSize: "0.75rem", color: "#4a90d9", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
-                                      {uploadingAvatarId === p.id ? "⏳ Envoi..." : "📷 Modifier l'avatar"}
-                                  </label>
-                                  {p.avatar_url && (
-                                      <button 
-                                        onClick={() => handleAvatarDelete(p.id, p.avatar_url)}
-                                        style={{ background: "none", border: "none", fontSize: "0.75rem", color: "#ef4444", cursor: "pointer", padding: 0 }}
-                                        disabled={uploadingAvatarId === p.id}
-                                      >
-                                        • Supprimer
-                                      </button>
-                                  )}
-                                </div>
                               </div>
                             </div>
                           </td>
@@ -879,6 +895,56 @@ export default function AdminPage() {
                   </table>
                 </div>
               )}
+            </div>
+
+          </div>
+        )}
+
+        {/* =========================================
+            TAB: BIBLIOTHEQUE AVATARS 
+            ========================================= */}
+        {activeTab === 'avatars' && (
+          <div style={{ animation: "fadeIn 0.4s ease" }}>
+            
+            <div style={{ ...cardStyle, marginBottom: "2rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+                <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#1e293b", margin: 0 }}>
+                  Bibliothèque Centrale d'Avatars
+                </h2>
+                <div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    ref={galleryFileInputRef}
+                    onChange={handleGalleryUpload}
+                  />
+                  <button onClick={() => galleryFileInputRef.current?.click()} style={{ ...btnSuccess, background: "rgba(16,185,129,0.1)", color: "#10b981", border: "1px solid rgba(16,185,129,0.3)" }}>
+                    + Ajouter une image (Générique)
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ padding: "1.5rem", background: "rgba(255,255,255,0.5)", borderRadius: "12px", border: "1px solid rgba(0,0,0,0.05)" }}>
+                {galleryAvatars.length === 0 ? (
+                  <p style={{ color: "#94a3b8", fontStyle: "italic", textAlign: "center", padding: "2rem" }}>La bibliothèque est vide. Uploadez des fichiers pour commencer.</p>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: "1rem" }}>
+                    {galleryAvatars.map((file) => (
+                      <div key={file.name} style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem" }}>
+                         <img 
+                           src={getAvatarPublicUrl(file.name)}
+                           alt={file.name}
+                           style={{ width: "80px", height: "80px", borderRadius: "50%", objectFit: "cover", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", border: "2px solid white" }} 
+                         />
+                         <button onClick={() => handleGalleryDelete(file.name)} style={{ background: "transparent", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "6px", fontSize: "0.7rem", padding: "0.2rem 0.6rem", cursor: "pointer" }}>
+                           Supprimer
+                         </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
           </div>
