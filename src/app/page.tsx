@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import Head from "next/head";
 import { supabase } from "@/lib/supabase";
 import { getWeightedScore } from "@/lib/ponderation";
@@ -182,7 +182,7 @@ export default function Home() {
       
       const scoreWithWeight = { ...score, weightedValue };
 
-      if (!bestScores[pid] || weightedValue > bestScores[pid].weightedValue) {
+      if (!bestScores[pid] || weightedValue >= (bestScores[pid].weightedValue || 0)) {
         bestScores[pid] = scoreWithWeight;
       }
     });
@@ -190,21 +190,20 @@ export default function Home() {
     return Object.values(bestScores).sort((a: any, b: any) => b.weightedValue - a.weightedValue);
   };
 
-  const topHommes = getBestScoresByGender("Homme");
-  const topFemmes = getBestScoresByGender("Femme");
+  const topHommes = useMemo(() => getBestScoresByGender("Homme"), [scores]);
+  const topFemmes = useMemo(() => getBestScoresByGender("Femme"), [scores]);
 
   /* === NOUVEAU LEADER CELEBRATION === */
   const [leaderCelebration, setLeaderCelebration] = useState<{athleteName: string, score: string, theme: "homme"|"femme"} | null>(null);
-  const prevTopHommeRef = useRef<any>(null);
-  const prevTopFemmeRef = useRef<any>(null);
+  const prevTopHommeId = useRef<string | null>(null);
+  const prevTopFemmeId = useRef<string | null>(null);
 
   useEffect(() => {
     if (scores.length === 0 || loading) return;
 
     if (topHommes.length > 0) {
       const currentTop = topHommes[0];
-      const prevTop = prevTopHommeRef.current;
-      if (prevTop && currentTop.id !== prevTop.id) {
+      if (prevTopHommeId.current !== null && currentTop.id !== prevTopHommeId.current) {
          setLeaderCelebration({
             athleteName: `${currentTop.participants?.first_name} ${currentTop.participants?.last_name}`.toUpperCase(),
             score: (currentTop.weightedValue || currentTop.value).toString(),
@@ -214,13 +213,12 @@ export default function Home() {
          setCurrentSponsorIndex(0);
          setIsSponsorVisible(false);
       }
-      prevTopHommeRef.current = currentTop;
+      prevTopHommeId.current = currentTop.id;
     }
 
     if (topFemmes.length > 0) {
       const currentTop = topFemmes[0];
-      const prevTop = prevTopFemmeRef.current;
-      if (prevTop && currentTop.id !== prevTop.id) {
+      if (prevTopFemmeId.current !== null && currentTop.id !== prevTopFemmeId.current) {
          setLeaderCelebration({
             athleteName: `${currentTop.participants?.first_name} ${currentTop.participants?.last_name}`.toUpperCase(),
             score: (currentTop.weightedValue || currentTop.value).toString(),
@@ -230,10 +228,9 @@ export default function Home() {
          setCurrentSponsorIndex(0);
          setIsSponsorVisible(false);
       }
-      prevTopFemmeRef.current = currentTop;
+      prevTopFemmeId.current = currentTop.id;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scores]);
+  }, [topHommes, topFemmes, loading]);
 
   /* === Avatars === */
   const Avatar = ({ name, gender, size = 6, showLetter = true }: { name?: string; gender: string; size?: number; showLetter?: boolean }) => {
@@ -273,23 +270,6 @@ export default function Home() {
         height,
         zIndex,
       }}>
-        {/* Avatar Area */}
-        <div style={{ 
-          position: "absolute",
-          top: "-7vw",
-          left: "0",
-          width: "100%",
-          display: "flex",
-          justifyContent: "center",
-          transform: `translateX(calc(${depth} / 2))`
-        }}>
-          {score ? (
-            <Avatar name={score.participants?.first_name} gender={score.participants?.category} size={6} />
-          ) : (
-            <div style={{ width: "6vw", height: "6vw", borderRadius: "50%", background: `rgba(${themeRGB},0.15)`, zIndex: 5 }} />
-          )}
-        </div>
-
         {/* 3D Container */}
         <div style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: "100%" }}>
           {/* Top Face */}
@@ -330,15 +310,15 @@ export default function Home() {
             {score && (
               <>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: "1vh" }}>
-                  <span style={{ fontSize: "clamp(2.5rem, 3.5vw, 5rem)", fontWeight: 900, color: "#1e293b", lineHeight: 1 }}>
+                  <span style={{ fontSize: "clamp(3rem, 4.5vw, 6rem)", fontWeight: 900, color: "#1e293b", lineHeight: 1 }}>
                     {score.weightedValue || score.value} <span style={{ fontSize: "50%", color: "#64748b" }}>pts</span>
                   </span>
-                  <span style={{ fontSize: "clamp(1.2rem, 1.8vw, 2.5rem)", fontWeight: 700, color: "#94a3b8", lineHeight: 1, marginTop: "0.2vh" }}>
+                  <span style={{ fontSize: "clamp(1.5rem, 2.2vw, 3rem)", fontWeight: 700, color: "#94a3b8", lineHeight: 1, marginTop: "0.2vh" }}>
                     ({score.value} cm)
                   </span>
                 </div>
                 <span style={{
-                  fontSize: "clamp(1.8rem, 2.5vw, 3.5rem)", fontWeight: 800, color: "#64748b",
+                  fontSize: "clamp(2.2rem, 3.2vw, 4.5rem)", fontWeight: 800, color: "#64748b",
                   whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "90%", textAlign: "center",
                   lineHeight: 1.2, marginTop: "0.5vh"
                 }}>
