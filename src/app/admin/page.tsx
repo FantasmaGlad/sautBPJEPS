@@ -155,10 +155,12 @@ export default function AdminPage() {
   
   // Sponsors Form
   const [sponsorName, setSponsorName] = useState("");
-  const [sponsorOrder, setSponsorOrder] = useState("1");
   const [sponsorDuration, setSponsorDuration] = useState("10");
   const [sponsorFile, setSponsorFile] = useState<File | null>(null);
   const [uploadingSponsor, setUploadingSponsor] = useState(false);
+
+  // Drag & Drop pour Sponsors
+  const [draggedSponsorId, setDraggedSponsorId] = useState<string | null>(null);
 
   // Global Settings Form
   const [settingBreakMin, setSettingBreakMin] = useState("3");
@@ -322,11 +324,14 @@ export default function AdminPage() {
     const mediaUrl = publicData.publicUrl;
     const isVideo = sponsorFile.type.startsWith("video/") || ext === "mp4" || ext === "webm";
     
+    // Détermination de l'ordre automatiquement (à la fin de la file)
+    const newDisplayOrder = sponsors.length > 0 ? Math.max(...sponsors.map(s => s.display_order || 0)) + 1 : 1;
+
     const { error: dbError } = await supabase.from("sponsors").insert([{
       name: sponsorName || "Sponsor",
       media_url: mediaUrl,
       media_type: isVideo ? "video" : "image",
-      display_order: parseInt(sponsorOrder, 10) || 1,
+      display_order: newDisplayOrder,
       duration_sec: parseInt(sponsorDuration, 10) || 10,
       is_active: true
     }]);
@@ -337,9 +342,7 @@ export default function AdminPage() {
       showStatus(`Erreur BD: ${dbError.message}`); 
     } else {
       showStatus("Média sponsor ajouté avec succès !");
-      // On ne vide pas setSponsorFile(null) ni le champ pour "garder en cache pour les fois suivantes"
       setSponsorName("");
-      setSponsorOrder((parseInt(sponsorOrder) + 1).toString());
       fetchData(); 
     }
   };
@@ -353,6 +356,46 @@ export default function AdminPage() {
   const editSponsorToggleActive = async (sponsor: any) => {
     const { error } = await supabase.from("sponsors").update({ is_active: !sponsor.is_active }).eq("id", sponsor.id);
     if (!error) fetchData();
+  };
+
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedSponsorId(id);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggedSponsorId || draggedSponsorId === targetId) return;
+
+    const draggedIndex = sponsors.findIndex(s => s.id === draggedSponsorId);
+    const targetIndex = sponsors.findIndex(s => s.id === targetId);
+    if (draggedIndex === -1 || targetIndex === -1) return;
+
+    const newSponsors = [...sponsors];
+    const [draggedItem] = newSponsors.splice(draggedIndex, 1);
+    newSponsors.splice(targetIndex, 0, draggedItem);
+
+    const sortedSponsors = newSponsors.map((s, idx) => ({ ...s, display_order: idx + 1 }));
+    setSponsors(sortedSponsors);
+    setDraggedSponsorId(null);
+
+    try {
+      showStatus("Enregistrement de l'ordre...");
+      await Promise.all(
+        sortedSponsors.map(s => 
+          supabase.from("sponsors").update({ display_order: s.display_order }).eq("id", s.id)
+        )
+      );
+      showStatus("Ordre sauvegardé !");
+    } catch (err: any) {
+      showStatus(`Erreur de sauvegarde: ${err.message}`);
+      fetchData(); 
+    }
   };
 
   const saveGlobalSettings = async (e: React.FormEvent) => {
@@ -802,16 +845,7 @@ export default function AdminPage() {
                     style={inputStyle} 
                   />
                   
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                    <div>
-                      <label style={{ display: "block", fontSize: "0.8rem", color: "#64748b", marginBottom: "4px" }}>Ordre de passage</label>
-                      <input 
-                        type="number" step="1" 
-                        value={sponsorOrder} 
-                        onChange={e => setSponsorOrder(e.target.value)} 
-                        required style={inputStyle} 
-                      />
-                    </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1rem" }}>
                     <div>
                       <label style={{ display: "block", fontSize: "0.8rem", color: "#64748b", marginBottom: "4px" }}>Durée de passage (sec)</label>
                       <input 
@@ -852,25 +886,41 @@ export default function AdminPage() {
                     </thead>
                     <tbody>
                       {sponsors.map((spo, idx) => (
-                        <tr key={spo.id} style={{ background: idx % 2 === 0 ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.3)", borderRadius: "8px" }}>
+                        <tr 
+                          key={spo.id} 
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, spo.id)}
+                          onDragOver={handleDragOver}
+                          onDrop={(e) => handleDrop(e, spo.id)}
+                          onDragEnd={() => setDraggedSponsorId(null)}
+                          style={{ 
+                            background: idx % 2 === 0 ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.3)", 
+                            cursor: "grab",
+                            opacity: draggedSponsorId === spo.id ? 0.4 : 1,
+                            transition: "opacity 0.2s"
+                          }}
+                        >
                           <td style={{ padding: "0.85rem 1rem", textAlign: "center", fontWeight: 800, color: "#4a7fbd", fontSize: "1.1rem", borderRadius: "8px 0 0 8px" }}>
-                            {spo.display_order}
+                             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "2px" }}>
+                                <span>{spo.display_order}</span>
+                                <span title="Maintenez pour déplacer" style={{ fontSize: "0.8rem", color: "#94a3b8", cursor: "ns-resize" }}>⠿</span>
+                             </div>
                           </td>
                           <td style={{ padding: "0.85rem 1rem" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
                               {spo.media_type === "image" ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img src={spo.media_url} alt={spo.name} style={{ width: "50px", height: "35px", objectFit: "cover", borderRadius: "4px", border: "1px solid #e2e8f0" }} />
+                                <img src={spo.media_url} alt={spo.name} style={{ width: "50px", height: "35px", objectFit: "cover", borderRadius: "4px", border: "1px solid #e2e8f0", pointerEvents: "none" }} />
                               ) : (
                                 <div style={{ width: "50px", height: "35px", background: "#e2e8f0", borderRadius: "4px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", color: "#475569" }}>
                                   Video
                                 </div>
                               )}
-                              <div>
+                              <div style={{ pointerEvents: "none" }}>
                                 <strong style={{ color: "#1e293b", fontSize: "0.95rem", display: "block" }}>
                                   {spo.name}
                                 </strong>
-                                <a href={spo.media_url} target="_blank" rel="noreferrer" style={{ fontSize: "0.75rem", color: "#4a7fbd", textDecoration: "none" }}>Ouvrir le lien</a>
+                                <a href={spo.media_url} target="_blank" rel="noreferrer" style={{ fontSize: "0.75rem", color: "#4a7fbd", textDecoration: "none", pointerEvents: "auto" }}>Ouvrir le lien</a>
                               </div>
                             </div>
                           </td>
