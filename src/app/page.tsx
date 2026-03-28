@@ -5,6 +5,7 @@ import Head from "next/head";
 import { supabase } from "@/lib/supabase";
 import { getWeightedScore } from "@/lib/ponderation";
 import { ScoreOverlay } from "@/components/ScoreOverlay";
+import { getAvatarPublicUrl } from "@/lib/avatars";
 
 export default function Home() {
   const [participants, setParticipants] = useState<any[]>([]);
@@ -233,9 +234,24 @@ export default function Home() {
   }, [topHommes, topFemmes, loading]);
 
   /* === Avatars === */
-  const Avatar = ({ name, gender, size = 6, showLetter = true }: { name?: string; gender: string; size?: number; showLetter?: boolean }) => {
+  const Avatar = ({ name, gender, size = 6, showLetter = true, avatarUrl }: { name?: string; gender: string; size?: number; showLetter?: boolean, avatarUrl?: string | null }) => {
     const isMale = gender === "Homme" || gender === "H";
     const letter = name && name.length > 0 ? name.charAt(0).toUpperCase() : "";
+    
+    if (avatarUrl && showLetter) {
+        return (
+          <img 
+            src={getAvatarPublicUrl(avatarUrl)}
+            alt={`Avatar de ${name}`}
+            style={{
+              width: `${size}vw`, height: `${size}vw`, borderRadius: "50%",
+              objectFit: "cover", zIndex: 5, flexShrink: 0,
+              boxShadow: `0 0.5vh 1.5vh ${isMale ? "rgba(59,130,246,0.3)" : "rgba(236,72,153,0.3)"}`
+            }}
+          />
+        );
+    }
+
     return (
       <div style={{
         width: `${size}vw`, height: `${size}vw`, borderRadius: "50%",
@@ -281,7 +297,7 @@ export default function Home() {
           transform: `translateX(calc(${depth} / 2))`
         }}>
           {score ? (
-            <Avatar name={score.participants?.first_name} gender={score.participants?.category} size={6} />
+            <Avatar name={score.participants?.first_name} gender={score.participants?.category} size={6} avatarUrl={score.participants?.avatar_url} />
           ) : (
             <div style={{ width: "6vw", height: "6vw", borderRadius: "50%", background: `rgba(${themeRGB},0.15)`, zIndex: 5 }} />
           )}
@@ -402,7 +418,7 @@ export default function Home() {
                   {idx + 4}
                 </div>
                 <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "2vw" }}>
-                  <Avatar name={score?.participants?.first_name} gender={gender} size={4} showLetter={!!score} />
+                  <Avatar name={score?.participants?.first_name} gender={gender} size={4} showLetter={!!score} avatarUrl={score?.participants?.avatar_url} />
                   <div style={{ display: "flex", flexDirection: "column" }}>
                     {score ? (
                       <strong style={{ color: "#1e293b", fontSize: "clamp(2.8rem, 4vw, 5.5rem)", fontWeight: 800 }}>

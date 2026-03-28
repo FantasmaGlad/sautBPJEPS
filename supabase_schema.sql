@@ -11,6 +11,7 @@ CREATE TABLE participants (
   last_name   TEXT NOT NULL,
   category     TEXT NOT NULL,
   age_category TEXT NOT NULL DEFAULT 'U18',
+  avatar_url   TEXT,
   created_at   TIMESTAMPTZ DEFAULT now()
 );
 
@@ -104,3 +105,27 @@ USING (bucket_id = 'sponsors-media' AND auth.role() = 'authenticated');
 CREATE POLICY "Suppressions médias par admin" 
 ON storage.objects FOR DELETE 
 USING (bucket_id = 'sponsors-media' AND auth.role() = 'authenticated');
+
+-- Création du bucket public "avatars"
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('avatars', 'avatars', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- RLS pour le bucket d'avatars
+-- Lecture publique des fichiers
+CREATE POLICY "Lecture publique des avatars" 
+ON storage.objects FOR SELECT 
+USING (bucket_id = 'avatars');
+
+-- Écriture, Modif, Suppresion réservée aux admins
+CREATE POLICY "Uploads avatars par admin" 
+ON storage.objects FOR INSERT 
+WITH CHECK (bucket_id = 'avatars' AND auth.role() = 'authenticated');
+
+CREATE POLICY "Modifications avatars par admin" 
+ON storage.objects FOR UPDATE 
+USING (bucket_id = 'avatars' AND auth.role() = 'authenticated');
+
+CREATE POLICY "Suppressions avatars par admin" 
+ON storage.objects FOR DELETE 
+USING (bucket_id = 'avatars' AND auth.role() = 'authenticated');

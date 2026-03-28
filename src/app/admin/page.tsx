@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { uploadAvatar, deleteAvatar, getAvatarPublicUrl } from "@/lib/avatars";
 
 /* ─── Shared Styles ─── */
 const cardStyle: React.CSSProperties = {
@@ -84,7 +85,21 @@ const btnSuccess: React.CSSProperties = {
 };
 
 /* ─── Avatar ─── */
-const Avatar = ({ name, gender, size = 36 }: { name: string; gender: string; size?: number }) => {
+const Avatar = ({ name, gender, size = 36, avatarUrl }: { name: string; gender: string; size?: number, avatarUrl?: string }) => {
+  if (avatarUrl) {
+    return (
+      <img
+        src={getAvatarPublicUrl(avatarUrl)}
+        alt={`Avatar de ${name}`}
+        style={{
+          width: size, height: size, borderRadius: "50%", flexShrink: 0,
+          objectFit: "cover",
+          boxShadow: `0 2px 8px ${gender === "Homme" || gender === "H" ? "rgba(74,144,217,0.3)" : "rgba(217,74,138,0.3)"}`,
+        }}
+      />
+    );
+  }
+
   const letter = name?.charAt(0)?.toUpperCase() || "?";
   const isMale = gender === "Homme" || gender === "H";
   return (
@@ -122,6 +137,8 @@ export default function AdminPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [historySearchQuery, setHistorySearchQuery] = useState(""); // Add history search
   const [editingParticipant, setEditingParticipant] = useState<any>(null);
+  
+  const [uploadingAvatarId, setUploadingAvatarId] = useState<string | null>(null);
   
   const [inlineScoreParticipantId, setInlineScoreParticipantId] = useState<string | null>(null);
   const [inlineScoreValue, setInlineScoreValue] = useState("");
@@ -210,6 +227,48 @@ export default function AdminPage() {
       .eq("id", editingParticipant.id);
     if (error) showStatus(`Erreur: ${error.message}`);
     else { showStatus("Profil mis à jour !"); setEditingParticipant(null); fetchData(); }
+  };
+
+  const handleAvatarUpload = async (participant: any, file: File | undefined) => {
+    if (!file) return;
+    setUploadingAvatarId(participant.id);
+    try {
+      const path = await uploadAvatar(file, participant.id);
+      
+      // Update DB with the new path and potentially remove the old one
+      if (participant.avatar_url) {
+        await deleteAvatar(participant.avatar_url);
+      }
+      
+      const { error } = await supabase.from("participants").update({ avatar_url: path }).eq("id", participant.id);
+      if (error) throw error;
+      
+      showStatus(`Avatar mis à jour pour ${participant.first_name}`);
+      fetchData();
+    } catch (err: any) {
+      showStatus(`Erreur d'upload: ${err.message}`);
+    } finally {
+      // Ensure specific ID component stops reacting
+      const avatarInput = document.getElementById(`avatar-upload-${participant.id}`) as HTMLInputElement;
+      if (avatarInput) avatarInput.value = "";
+      setUploadingAvatarId(null);
+    }
+  };
+
+  const handleAvatarDelete = async (participantId: string, currentPath: string | null) => {
+    if (!currentPath || !window.confirm("Voulez-vous supprimer l'avatar actuel de ce profil ?")) return;
+    setUploadingAvatarId(participantId);
+    try {
+      await deleteAvatar(currentPath);
+      const { error } = await supabase.from("participants").update({ avatar_url: null }).eq("id", participantId);
+      if (error) throw error;
+      showStatus("Avatar supprimé");
+      fetchData();
+    } catch (err: any) {
+      showStatus(`Erreur de suppression: ${err.message}`);
+    } finally {
+      setUploadingAvatarId(null);
+    }
   };
 
   const submitScore = async (participantId: string, valStr: string) => {
@@ -480,8 +539,31 @@ export default function AdminPage() {
                         <tr key={p.id} style={{ background: idx % 2 === 0 ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.4)", borderRadius: "10px", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
                           <td style={{ padding: "1rem", borderRadius: "10px 0 0 10px" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
-                              <Avatar name={p.first_name} gender={p.category} size={40} />
-                              <strong style={{ color: "#1e293b", fontSize: "1.05rem" }}>{p.last_name} {p.first_name}</strong>
+                              <Avatar name={p.first_name} gender={p.category} size={40} avatarUrl={p.avatar_url} />
+                              <div style={{ display: "flex", flexDirection: "column" }}>
+                                <strong style={{ color: "#1e293b", fontSize: "1.05rem" }}>{p.last_name} {p.first_name}</strong>
+                                <div style={{ display: "flex", gap: "0.5rem", marginTop: "4px" }}>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    style={{ display: "none" }}
+                                    id={`avatar-upload-${p.id}`}
+                                    onChange={(e) => handleAvatarUpload(p, e.target.files?.[0])}
+                                  />
+                                  <label htmlFor={`avatar-upload-${p.id}`} style={{ fontSize: "0.75rem", color: "#4a90d9", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
+                                      {uploadingAvatarId === p.id ? "⏳ Envoi..." : "📷 Modifier l'avatar"}
+                                  </label>
+                                  {p.avatar_url && (
+                                      <button 
+                                        onClick={() => handleAvatarDelete(p.id, p.avatar_url)}
+                                        style={{ background: "none", border: "none", fontSize: "0.75rem", color: "#ef4444", cursor: "pointer", padding: 0 }}
+                                        disabled={uploadingAvatarId === p.id}
+                                      >
+                                        • Supprimer
+                                      </button>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           </td>
                           <td style={{ padding: "1rem" }}>
