@@ -270,6 +270,23 @@ export default function Home() {
         height,
         zIndex,
       }}>
+        {/* Avatar Area */}
+        <div style={{ 
+          position: "absolute",
+          top: "-7vw",
+          left: "0",
+          width: "100%",
+          display: "flex",
+          justifyContent: "center",
+          transform: `translateX(calc(${depth} / 2))`
+        }}>
+          {score ? (
+            <Avatar name={score.participants?.first_name} gender={score.participants?.category} size={6} />
+          ) : (
+            <div style={{ width: "6vw", height: "6vw", borderRadius: "50%", background: `rgba(${themeRGB},0.15)`, zIndex: 5 }} />
+          )}
+        </div>
+
         {/* 3D Container */}
         <div style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: "100%" }}>
           {/* Top Face */}
@@ -345,15 +362,6 @@ export default function Home() {
     return (
       <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "0 2vw" }}>
         
-        {/* Title */}
-        <h2 style={{
-          textAlign: "center", color: themeColor, fontSize: "clamp(2.5rem, 3.5vw, 5rem)",
-          fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", fontStyle: "normal",
-          marginTop: "0", marginBottom: "4vh", textShadow: "0 2px 10px rgba(0,0,0,0.05)"
-        }}>
-          {title}
-        </h2>
-
         {/* Vertically Centered Content Wrapper */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", width: "100%", paddingBottom: "2vh" }}>
           
