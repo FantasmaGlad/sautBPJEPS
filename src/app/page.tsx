@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import Head from "next/head";
 import { supabase } from "@/lib/supabase";
+import { getWeightedScore } from "@/lib/ponderation";
 
 export default function Home() {
   const [participants, setParticipants] = useState<any[]>([]);
@@ -171,12 +172,21 @@ export default function Home() {
 
     genderScores.forEach((score) => {
       const pid = score.participant_id;
-      if (!bestScores[pid] || score.value > bestScores[pid].value) {
-        bestScores[pid] = score;
+      // Calcul du score pondéré avec sauts bruts et age category
+      const weightedValue = getWeightedScore(
+        score.value, 
+        score.participants?.category || gender, 
+        score.participants?.age_category || "U18"
+      );
+      
+      const scoreWithWeight = { ...score, weightedValue };
+
+      if (!bestScores[pid] || weightedValue > bestScores[pid].weightedValue) {
+        bestScores[pid] = scoreWithWeight;
       }
     });
 
-    return Object.values(bestScores).sort((a: any, b: any) => b.value - a.value);
+    return Object.values(bestScores).sort((a: any, b: any) => b.weightedValue - a.weightedValue);
   };
 
   const topHommes = getBestScoresByGender("Homme");
@@ -276,9 +286,14 @@ export default function Home() {
             </span>
             {score && (
               <>
-                <span style={{ fontSize: "clamp(2.5rem, 3.5vw, 5rem)", fontWeight: 900, color: "#1e293b", marginTop: "1vh", lineHeight: 1.1 }}>
-                  {score.value}
-                </span>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: "1vh" }}>
+                  <span style={{ fontSize: "clamp(2.5rem, 3.5vw, 5rem)", fontWeight: 900, color: "#1e293b", lineHeight: 1 }}>
+                    {score.weightedValue || score.value} <span style={{ fontSize: "50%", color: "#64748b" }}>pts</span>
+                  </span>
+                  <span style={{ fontSize: "clamp(1.2rem, 1.8vw, 2.5rem)", fontWeight: 700, color: "#94a3b8", lineHeight: 1, marginTop: "0.2vh" }}>
+                    ({score.value} cm)
+                  </span>
+                </div>
                 <span style={{
                   fontSize: "clamp(1.8rem, 2.5vw, 3.5rem)", fontWeight: 800, color: "#64748b",
                   whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "90%", textAlign: "center",
@@ -367,8 +382,19 @@ export default function Home() {
                     )}
                   </div>
                 </div>
-                <div style={{ width: "20%", textAlign: "right", color: "#475569", fontWeight: 900, fontSize: "clamp(2.8rem, 4vw, 5.5rem)" }}>
-                  {score ? score.value : "—"}
+                <div style={{ width: "20%", textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "center" }}>
+                  {score ? (
+                    <>
+                      <span style={{ color: "#475569", fontWeight: 900, fontSize: "clamp(2.5rem, 3.5vw, 5rem)", lineHeight: 1 }}>
+                        {score.weightedValue || score.value} <span style={{ fontSize: "50%", color: "#94a3b8" }}>pts</span>
+                      </span>
+                      <span style={{ color: "#94a3b8", fontWeight: 700, fontSize: "clamp(1.2rem, 1.6vw, 2.5rem)", lineHeight: 1, marginTop: "0.2vh" }}>
+                        ({score.value} cm)
+                      </span>
+                    </>
+                  ) : (
+                    <span style={{ color: "#475569", fontWeight: 900, fontSize: "clamp(2.8rem, 4vw, 5.5rem)" }}>—</span>
+                  )}
                 </div>
               </div>
             ))}
