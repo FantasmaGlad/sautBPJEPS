@@ -337,7 +337,6 @@ export default function Home() {
             top: 0, left: 0, width: "100%", height: "100%",
             background: frontColor,
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            paddingBottom: rank === 1 ? "5vh" : "0", // Pousse le texte vers le haut spécifiquement pour le Rang 1
             boxShadow: "-1vh 1vh 2vh rgba(0,0,0,0.02)",
           }}>
             <span style={{ fontSize: "clamp(4rem, 6.5vw, 8rem)", fontWeight: 900, color: `rgba(${themeRGB},0.6)`, lineHeight: 1 }}>
