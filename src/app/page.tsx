@@ -18,7 +18,7 @@ export default function Home() {
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [mediaCache, setMediaCache] = useState<Record<string, string>>({});
-  
+
   // Timer state
   const [displayMode, setDisplayMode] = useState<'leaderboard' | 'carousel'>('leaderboard');
   const [currentSponsorIndex, setCurrentSponsorIndex] = useState<number>(0);
@@ -35,11 +35,11 @@ export default function Home() {
         // Optimisation : Requête ciblée uniquement sur la seule ligne qui change (Au lieu de télécharger tout)
         if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
           const { data: newScore } = await supabase
-             .from("scores")
-             .select("*, participants(*)")
-             .eq("id", payload.new.id)
-             .single();
-             
+            .from("scores")
+            .select("*, participants(*)")
+            .eq("id", payload.new.id)
+            .single();
+
           if (newScore && newScore.is_active) {
             setScores(prev => {
               const filtered = prev.filter(s => s.id !== newScore.id);
@@ -49,7 +49,7 @@ export default function Home() {
             setScores(prev => prev.filter(s => s.id !== newScore.id));
           }
         } else if (payload.eventType === 'DELETE') {
-           setScores(prev => prev.filter(s => s.id !== payload.old.id));
+          setScores(prev => prev.filter(s => s.id !== payload.old.id));
         }
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "sponsors" }, fetchSponsorsAndSettings)
@@ -76,7 +76,7 @@ export default function Home() {
       supabase.from("sponsors").select("*").eq("is_active", true).order("display_order", { ascending: true }),
       supabase.from("settings").select("*").limit(1).single()
     ]);
-    
+
     if (spRes.data) setSponsors(spRes.data);
     if (setRes.data) setGlobalSettings(setRes.data);
   };
@@ -86,18 +86,18 @@ export default function Home() {
     sponsors.forEach((sponsor) => {
       setMediaCache((prev) => {
         if (prev[sponsor.media_url]) return prev;
-        
+
         fetch(sponsor.media_url)
           .then((res) => res.blob())
           .then((blob) => {
-             const objectUrl = URL.createObjectURL(blob);
-             setMediaCache((current) => ({ ...current, [sponsor.media_url]: objectUrl }));
+            const objectUrl = URL.createObjectURL(blob);
+            setMediaCache((current) => ({ ...current, [sponsor.media_url]: objectUrl }));
           })
           .catch((err) => {
-             console.error("Impossible de fetch la vidéo TV, fallback vers URL directe", err);
-             setMediaCache((current) => ({ ...current, [sponsor.media_url]: sponsor.media_url }));
+            console.error("Impossible de fetch la vidéo TV, fallback vers URL directe", err);
+            setMediaCache((current) => ({ ...current, [sponsor.media_url]: sponsor.media_url }));
           });
-          
+
         return { ...prev, [sponsor.media_url]: "loading" };
       });
     });
@@ -106,31 +106,31 @@ export default function Home() {
   // === CAROUSEL TIMER ENGINE ===
   useEffect(() => {
     if (sponsors.length === 0 || !globalSettings) return;
-    
+
     // Convert to milliseconds
     const leaderboardDurationMs = (globalSettings.carousel_interval_min || 3) * 60 * 1000;
     const breakDelayMs = (globalSettings.carousel_duration_sec || 1) * 1000;
-    
+
     if (displayMode === 'leaderboard') {
       const t = setTimeout(() => {
-         setDisplayMode('carousel');
-         setCurrentSponsorIndex(0);
-         setIsSponsorVisible(true);
+        setDisplayMode('carousel');
+        setCurrentSponsorIndex(0);
+        setIsSponsorVisible(true);
       }, leaderboardDurationMs);
       return () => clearTimeout(t);
     }
-    
+
     if (displayMode === 'carousel') {
       if (!isSponsorVisible) {
         // We are in the "delay between sponsors" (black screen transition)
         const t = setTimeout(() => {
-           const nextIdx = currentSponsorIndex + 1;
-           if (nextIdx >= sponsors.length) {
-              setDisplayMode('leaderboard');
-           } else {
-              setCurrentSponsorIndex(nextIdx);
-              setIsSponsorVisible(true);
-           }
+          const nextIdx = currentSponsorIndex + 1;
+          if (nextIdx >= sponsors.length) {
+            setDisplayMode('leaderboard');
+          } else {
+            setCurrentSponsorIndex(nextIdx);
+            setIsSponsorVisible(true);
+          }
         }, breakDelayMs);
         return () => clearTimeout(t);
       } else {
@@ -139,29 +139,29 @@ export default function Home() {
 
         // Trigger video play if it's a video
         if (sponsor?.media_type === "video") {
-           const vidInfo = videoRef.current;
-           if (vidInfo) {
-              vidInfo.currentTime = 0;
-              const playPromise = vidInfo.play();
-              if (playPromise !== undefined) {
-                 playPromise.catch(e => console.error("TV AutoPlay blocked:", e));
-              }
-           }
-           
-           // FALLBACK TIMER (Sécurité absolue Smart TV)
-           // Si la vidéo plante et "onEnded" n'est jamais appelé, on force le passage
-           // après duration_sec + 2 secondes de marge d'erreur.
-           const fallbackDurationMs = (sponsor?.duration_sec || 10) * 1000 + 2000;
-           const safeTimer = setTimeout(() => {
-              setIsSponsorVisible(false);
-           }, fallbackDurationMs);
-           
-           return () => clearTimeout(safeTimer);
+          const vidInfo = videoRef.current;
+          if (vidInfo) {
+            vidInfo.currentTime = 0;
+            const playPromise = vidInfo.play();
+            if (playPromise !== undefined) {
+              playPromise.catch(e => console.error("TV AutoPlay blocked:", e));
+            }
+          }
+
+          // FALLBACK TIMER (Sécurité absolue Smart TV)
+          // Si la vidéo plante et "onEnded" n'est jamais appelé, on force le passage
+          // après duration_sec + 2 secondes de marge d'erreur.
+          const fallbackDurationMs = (sponsor?.duration_sec || 10) * 1000 + 2000;
+          const safeTimer = setTimeout(() => {
+            setIsSponsorVisible(false);
+          }, fallbackDurationMs);
+
+          return () => clearTimeout(safeTimer);
         }
 
         const sponsorDurationMs = (sponsor?.duration_sec || 5) * 1000;
         const t = setTimeout(() => {
-           setIsSponsorVisible(false); // Hide image, triggering breakDelayMs next
+          setIsSponsorVisible(false); // Hide image, triggering breakDelayMs next
         }, sponsorDurationMs);
         return () => clearTimeout(t);
       }
@@ -177,11 +177,11 @@ export default function Home() {
       const pid = score.participant_id;
       // Calcul du score pondéré avec sauts bruts et age category
       const weightedValue = getWeightedScore(
-        score.value, 
-        score.participants?.category || gender, 
+        score.value,
+        score.participants?.category || gender,
         score.participants?.age_category || "U18"
       );
-      
+
       const scoreWithWeight = { ...score, weightedValue };
 
       if (!bestScores[pid] || weightedValue >= (bestScores[pid].weightedValue || 0)) {
@@ -196,7 +196,7 @@ export default function Home() {
   const topFemmes = useMemo(() => getBestScoresByGender("Femme"), [scores]);
 
   /* === NOUVEAU LEADER CELEBRATION === */
-  const [leaderCelebration, setLeaderCelebration] = useState<{athleteName: string, score: string, theme: "homme"|"femme"} | null>(null);
+  const [leaderCelebration, setLeaderCelebration] = useState<{ athleteName: string, score: string, theme: "homme" | "femme" } | null>(null);
   const prevTopHommeId = useRef<string | null>(null);
   const prevTopFemmeId = useRef<string | null>(null);
 
@@ -206,14 +206,14 @@ export default function Home() {
     if (topHommes.length > 0) {
       const currentTop = topHommes[0];
       if (prevTopHommeId.current !== null && currentTop.id !== prevTopHommeId.current) {
-         setLeaderCelebration({
-            athleteName: `${currentTop.participants?.first_name} ${currentTop.participants?.last_name}`.toUpperCase(),
-            score: (currentTop.weightedValue || currentTop.value).toString(),
-            theme: "homme"
-         });
-         setDisplayMode("leaderboard");
-         setCurrentSponsorIndex(0);
-         setIsSponsorVisible(false);
+        setLeaderCelebration({
+          athleteName: `${currentTop.participants?.first_name} ${currentTop.participants?.last_name}`.toUpperCase(),
+          score: (currentTop.weightedValue || currentTop.value).toString(),
+          theme: "homme"
+        });
+        setDisplayMode("leaderboard");
+        setCurrentSponsorIndex(0);
+        setIsSponsorVisible(false);
       }
       prevTopHommeId.current = currentTop.id;
     }
@@ -221,14 +221,14 @@ export default function Home() {
     if (topFemmes.length > 0) {
       const currentTop = topFemmes[0];
       if (prevTopFemmeId.current !== null && currentTop.id !== prevTopFemmeId.current) {
-         setLeaderCelebration({
-            athleteName: `${currentTop.participants?.first_name} ${currentTop.participants?.last_name}`.toUpperCase(),
-            score: (currentTop.weightedValue || currentTop.value).toString(),
-            theme: "femme"
-         });
-         setDisplayMode("leaderboard");
-         setCurrentSponsorIndex(0);
-         setIsSponsorVisible(false);
+        setLeaderCelebration({
+          athleteName: `${currentTop.participants?.first_name} ${currentTop.participants?.last_name}`.toUpperCase(),
+          score: (currentTop.weightedValue || currentTop.value).toString(),
+          theme: "femme"
+        });
+        setDisplayMode("leaderboard");
+        setCurrentSponsorIndex(0);
+        setIsSponsorVisible(false);
       }
       prevTopFemmeId.current = currentTop.id;
     }
@@ -238,19 +238,19 @@ export default function Home() {
   const Avatar = ({ name, gender, size = 6, showLetter = true, avatarUrl }: { name?: string; gender: string; size?: number; showLetter?: boolean, avatarUrl?: string | null }) => {
     const isMale = gender === "Homme" || gender === "H";
     const letter = name && name.length > 0 ? name.charAt(0).toUpperCase() : "";
-    
+
     if (avatarUrl && showLetter) {
-        return (
-          <img 
-            src={getAvatarPublicUrl(avatarUrl)}
-            alt={`Avatar de ${name}`}
-            style={{
-              width: `${size}vw`, height: `${size}vw`, borderRadius: "50%",
-              objectFit: "cover", zIndex: 5, flexShrink: 0,
-              boxShadow: `0 0.5vh 1.5vh ${isMale ? "rgba(59,130,246,0.3)" : "rgba(236,72,153,0.3)"}`
-            }}
-          />
-        );
+      return (
+        <img
+          src={getAvatarPublicUrl(avatarUrl)}
+          alt={`Avatar de ${name}`}
+          style={{
+            width: `${size}vw`, height: `${size}vw`, borderRadius: "50%",
+            objectFit: "cover", zIndex: 5, flexShrink: 0,
+            boxShadow: `0 0.5vh 1.5vh ${isMale ? "rgba(59,130,246,0.3)" : "rgba(236,72,153,0.3)"}`
+          }}
+        />
+      );
     }
 
     return (
@@ -269,12 +269,12 @@ export default function Home() {
 
   /* === Podium Cards === */
   const PodiumCard = ({ score, rank, themeRGB, height }: { score: any; rank: number; themeRGB: string; height: string }) => {
-    const depth = "2.5vw"; 
+    const depth = "2.5vw";
     let zIndex = 5;
     if (rank === 2) zIndex = 5;
     if (rank === 1) zIndex = 10;
     if (rank === 3) zIndex = 15;
-    
+
     // Extracted colors
     const topColor = rank === 1 ? `rgba(${themeRGB}, 0.15)` : `rgba(${themeRGB}, 0.25)`;
     const rightColor = rank === 1 ? `rgba(${themeRGB}, 0.3)` : `rgba(${themeRGB}, 0.45)`;
@@ -288,7 +288,7 @@ export default function Home() {
         zIndex,
       }}>
         {/* Avatar Area */}
-        <div style={{ 
+        <div style={{
           position: "absolute",
           top: "-7vw",
           left: "0",
@@ -337,6 +337,7 @@ export default function Home() {
             top: 0, left: 0, width: "100%", height: "100%",
             background: frontColor,
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+            paddingBottom: rank === 1 ? "5vh" : "0", // Pousse le texte vers le haut spécifiquement pour le Rang 1
             boxShadow: "-1vh 1vh 2vh rgba(0,0,0,0.02)",
           }}>
             <span style={{ fontSize: "clamp(4rem, 6.5vw, 8rem)", fontWeight: 900, color: `rgba(${themeRGB},0.6)`, lineHeight: 1 }}>
@@ -370,7 +371,7 @@ export default function Home() {
   /* === Left/Right Column Container === */
   const LeaderboardColumn = ({ title, data, themeColor, gender }: { title: string; data: any[]; themeColor: string; gender: string }) => {
     const top3 = [data[1], data[0], data[2]]; // Order: 2, 1, 3
-    
+
     // Always create 2 slots for ranks 4 and 5
     const extendedList = [];
     for (let i = 3; i < 5; i++) {
@@ -379,14 +380,14 @@ export default function Home() {
 
     return (
       <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "0 2vw" }}>
-        
+
         {/* Vertically Centered Content Wrapper */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", width: "100%", paddingBottom: "2vh" }}>
-          
+
           {/* Podium Area (Top 3) */}
           <div style={{
             display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%",
-            height: "44vh", marginBottom: "3vh",
+            height: "35vh", marginBottom: "3vh",
           }}>
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%", height: "100%", paddingRight: "2.5vw", paddingTop: "8vw" }}>
               <PodiumCard score={top3[0]} rank={2} themeRGB={gender === "Homme" || gender === "H" ? "59,130,246" : "236,72,153"} height="62%" />
@@ -402,54 +403,54 @@ export default function Home() {
               borderRadius: "2vh", padding: "1vh 3vw", border: "1px solid rgba(255,255,255,0.4)",
               display: "flex", flexDirection: "column", gap: "1vh"
             }}>
-            {/* Header Row */}
-            <div style={{ display: "flex", color: "#64748b", fontSize: "clamp(1.8rem, 2.5vw, 3.2rem)", fontWeight: 800, borderBottom: "2px solid rgba(0,0,0,0.05)", paddingBottom: "0.5vh" }}>
-              <div style={{ width: "15%", textAlign: "center" }}>RANG</div>
-              <div style={{ flex: 1, paddingLeft: "6vw" }}>ATHLÈTE</div>
-              <div style={{ width: "20%", textAlign: "right", paddingRight: "1vw" }}>SCORE</div>
-            </div>
+              {/* Header Row */}
+              <div style={{ display: "flex", color: "#64748b", fontSize: "clamp(1.8rem, 2.5vw, 3.2rem)", fontWeight: 800, borderBottom: "2px solid rgba(0,0,0,0.05)", paddingBottom: "0.5vh" }}>
+                <div style={{ width: "15%", textAlign: "center" }}>RANG</div>
+                <div style={{ flex: 1, paddingLeft: "6vw" }}>ATHLÈTE</div>
+                <div style={{ width: "20%", textAlign: "right", paddingRight: "1vw" }}>SCORE</div>
+              </div>
 
-            {/* Always 2 Rows */}
-            {extendedList.map((score, idx) => (
-              <div key={idx} style={{
-                display: "flex", alignItems: "center", padding: "0.8vh 0",
-                borderBottom: idx === 1 ? "none" : "1px solid rgba(0,0,0,0.03)",
-                opacity: score ? 1 : 0.4
-              }}>
-                <div style={{ width: "15%", textAlign: "center", color: "#94a3b8", fontWeight: 800, fontSize: "clamp(2.2rem, 3vw, 4.5rem)" }}>
-                  {idx + 4}
-                </div>
-                <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "2vw" }}>
-                  <Avatar name={score?.participants?.first_name} gender={gender} size={4} showLetter={!!score} avatarUrl={score?.participants?.avatar_url} />
-                  <div style={{ display: "flex", flexDirection: "column" }}>
+              {/* Always 2 Rows */}
+              {extendedList.map((score, idx) => (
+                <div key={idx} style={{
+                  display: "flex", alignItems: "center", padding: "0.8vh 0",
+                  borderBottom: idx === 1 ? "none" : "1px solid rgba(0,0,0,0.03)",
+                  opacity: score ? 1 : 0.4
+                }}>
+                  <div style={{ width: "15%", textAlign: "center", color: "#94a3b8", fontWeight: 800, fontSize: "clamp(2.2rem, 3vw, 4.5rem)" }}>
+                    {idx + 4}
+                  </div>
+                  <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "2vw" }}>
+                    <Avatar name={score?.participants?.first_name} gender={gender} size={4} showLetter={!!score} avatarUrl={score?.participants?.avatar_url} />
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                      {score ? (
+                        <strong style={{ color: "#1e293b", fontSize: "clamp(2.8rem, 4vw, 5.5rem)", fontWeight: 800 }}>
+                          {score.participants?.first_name}
+                        </strong>
+                      ) : (
+                        <strong style={{ background: "rgba(0,0,0,0.03)", borderRadius: "6px", width: "40%", height: "clamp(2.8rem, 4vw, 5.5rem)" }} />
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ width: "20%", textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "center" }}>
                     {score ? (
-                      <strong style={{ color: "#1e293b", fontSize: "clamp(2.8rem, 4vw, 5.5rem)", fontWeight: 800 }}>
-                        {score.participants?.first_name}
-                      </strong>
+                      <>
+                        <span style={{ color: "#475569", fontWeight: 900, fontSize: "clamp(2.5rem, 3.5vw, 5rem)", lineHeight: 1 }}>
+                          {score.weightedValue || score.value} <span style={{ fontSize: "50%", color: "#94a3b8" }}>pts</span>
+                        </span>
+                        <span style={{ color: "#94a3b8", fontWeight: 700, fontSize: "clamp(1.2rem, 1.6vw, 2.5rem)", lineHeight: 1, marginTop: "0.2vh" }}>
+                          ({score.value} cm)
+                        </span>
+                      </>
                     ) : (
-                      <strong style={{ background: "rgba(0,0,0,0.03)", borderRadius: "6px", width: "40%", height: "clamp(2.8rem, 4vw, 5.5rem)" }} />
+                      <span style={{ color: "#475569", fontWeight: 900, fontSize: "clamp(2.8rem, 4vw, 5.5rem)" }}>—</span>
                     )}
                   </div>
                 </div>
-                <div style={{ width: "20%", textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "center" }}>
-                  {score ? (
-                    <>
-                      <span style={{ color: "#475569", fontWeight: 900, fontSize: "clamp(2.5rem, 3.5vw, 5rem)", lineHeight: 1 }}>
-                        {score.weightedValue || score.value} <span style={{ fontSize: "50%", color: "#94a3b8" }}>pts</span>
-                      </span>
-                      <span style={{ color: "#94a3b8", fontWeight: 700, fontSize: "clamp(1.2rem, 1.6vw, 2.5rem)", lineHeight: 1, marginTop: "0.2vh" }}>
-                        ({score.value} cm)
-                      </span>
-                    </>
-                  ) : (
-                    <span style={{ color: "#475569", fontWeight: 900, fontSize: "clamp(2.8rem, 4vw, 5.5rem)" }}>—</span>
-                  )}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
-      </div>
       </div>
     );
   };
@@ -472,7 +473,7 @@ export default function Home() {
         background: "linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%)",
         fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif"
       }}>
-        
+
         {/* === Full-Screen Sponsor Overlay === */}
         <div style={{
           position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
@@ -488,41 +489,41 @@ export default function Home() {
             if (!activeSponsor) return null;
 
             const isVideo = activeSponsor.media_type === "video";
-            const currentSrc = mediaCache[activeSponsor.media_url] && mediaCache[activeSponsor.media_url] !== "loading" 
-                 ? mediaCache[activeSponsor.media_url] 
-                 : activeSponsor.media_url;
+            const currentSrc = mediaCache[activeSponsor.media_url] && mediaCache[activeSponsor.media_url] !== "loading"
+              ? mediaCache[activeSponsor.media_url]
+              : activeSponsor.media_url;
 
             return (
               <>
-                <video 
-                   ref={videoRef}
-                   src={isVideo ? currentSrc : undefined} 
-                   autoPlay={isVideo}
-                   muted playsInline preload="auto"
-                   onEnded={() => { 
-                      if (displayMode === 'carousel' && isSponsorVisible) setIsSponsorVisible(false); 
-                   }}
-                   style={{ 
-                     position: "absolute",
-                     width: "100%", height: "100%", objectFit: "cover", 
-                     opacity: (isVideo && isSponsorVisible) ? 1 : 0,
-                     transition: "opacity 0.5s ease",
-                     pointerEvents: "none",
-                     // Cache le lecteur si ce n'est pas une vidéo pour libérer le décodage matériel
-                     display: isVideo ? "block" : "none"
-                   }} 
+                <video
+                  ref={videoRef}
+                  src={isVideo ? currentSrc : undefined}
+                  autoPlay={isVideo}
+                  muted playsInline preload="auto"
+                  onEnded={() => {
+                    if (displayMode === 'carousel' && isSponsorVisible) setIsSponsorVisible(false);
+                  }}
+                  style={{
+                    position: "absolute",
+                    width: "100%", height: "100%", objectFit: "cover",
+                    opacity: (isVideo && isSponsorVisible) ? 1 : 0,
+                    transition: "opacity 0.5s ease",
+                    pointerEvents: "none",
+                    // Cache le lecteur si ce n'est pas une vidéo pour libérer le décodage matériel
+                    display: isVideo ? "block" : "none"
+                  }}
                 />
                 <img
-                   src={!isVideo ? currentSrc : undefined} 
-                   alt="Sponsor Media"
-                   style={{ 
-                     position: "absolute",
-                     width: "100%", height: "100%", objectFit: "contain",
-                     opacity: (!isVideo && isSponsorVisible) ? 1 : 0,
-                     transition: "opacity 0.5s ease",
-                     pointerEvents: "none",
-                     display: !isVideo ? "block" : "none"
-                   }} 
+                  src={!isVideo ? currentSrc : undefined}
+                  alt="Sponsor Media"
+                  style={{
+                    position: "absolute",
+                    width: "100%", height: "100%", objectFit: "contain",
+                    opacity: (!isVideo && isSponsorVisible) ? 1 : 0,
+                    transition: "opacity 0.5s ease",
+                    pointerEvents: "none",
+                    display: !isVideo ? "block" : "none"
+                  }}
                 />
               </>
             );
@@ -531,14 +532,14 @@ export default function Home() {
 
         {/* Geometric Animated Background */}
         <div style={{ position: "absolute", width: "100vw", height: "100vh", zIndex: 0, overflow: "hidden", filter: "blur(40px) opacity(0.5)" }}>
-           <div style={{ position: "absolute", top: "10%", left: "10%", width: "40vw", height: "40vw", background: "rgba(59,130,246,0.3)", borderRadius: "50%", animation: "geoFloat 20s infinite alternate" }} />
-           <div style={{ position: "absolute", bottom: "10%", right: "10%", width: "50vw", height: "50vw", background: "rgba(236,72,153,0.3)", borderRadius: "50%", animation: "geoFloat 25s infinite alternate-reverse" }} />
-           <div style={{ position: "absolute", top: "40%", left: "50%", width: "30vw", height: "30vw", background: "rgba(139,92,246,0.2)", borderRadius: "50%", animation: "geoFloat 18s infinite alternate" }} />
+          <div style={{ position: "absolute", top: "10%", left: "10%", width: "40vw", height: "40vw", background: "rgba(59,130,246,0.3)", borderRadius: "50%", animation: "geoFloat 20s infinite alternate" }} />
+          <div style={{ position: "absolute", bottom: "10%", right: "10%", width: "50vw", height: "50vw", background: "rgba(236,72,153,0.3)", borderRadius: "50%", animation: "geoFloat 25s infinite alternate-reverse" }} />
+          <div style={{ position: "absolute", top: "40%", left: "50%", width: "30vw", height: "30vw", background: "rgba(139,92,246,0.2)", borderRadius: "50%", animation: "geoFloat 18s infinite alternate" }} />
         </div>
 
         {/* Content Container */}
         <div style={{ display: "flex", flexDirection: "column", width: "100vw", height: "100vh", position: "relative", zIndex: 10, padding: "3vh 2vw", boxSizing: "border-box" }}>
-          
+
           {/* Main Header (Grid to perfectly center title and keep date right) */}
           <header style={{
             display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center",
@@ -554,7 +555,7 @@ export default function Home() {
                 Panel Admin
               </a>
             </div>
-            
+
             <div style={{ textAlign: "center" }}>
               <h1 style={{ fontSize: "clamp(3rem, 4vw, 6rem)", fontWeight: 900, color: "#1e293b", letterSpacing: "-0.02em", margin: 0, textTransform: "uppercase" }}>
                 Classement Jump Contest
@@ -575,7 +576,7 @@ export default function Home() {
 
           {/* Leaderboard Columns */}
           <div style={{ display: "flex", flex: 1, gap: "4vw", paddingTop: "1vh" }}>
-            
+
             <div style={{ flex: 1, height: "100%", background: "linear-gradient(180deg, rgba(232,237,244,0) 0%, rgba(232,237,244,0.8) 100%)", borderRadius: "3vh" }}>
               <LeaderboardColumn title="Classement Masculin" data={topHommes} themeColor="#3b82f6" gender="Homme" />
             </div>
