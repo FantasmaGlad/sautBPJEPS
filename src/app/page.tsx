@@ -386,12 +386,12 @@ export default function Home() {
           {/* Podium Area (Top 3) */}
           <div style={{
             display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%",
-            height: "35vh", marginBottom: "3vh",
+            height: "44vh", marginBottom: "3vh",
           }}>
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%", height: "100%", paddingRight: "2.5vw", paddingTop: "8vw" }}>
-              <PodiumCard score={top3[0]} rank={2} themeRGB={gender === "Homme" || gender === "H" ? "59,130,246" : "236,72,153"} height="55%" />
-              <PodiumCard score={top3[1]} rank={1} themeRGB={gender === "Homme" || gender === "H" ? "59,130,246" : "236,72,153"} height="75%" />
-              <PodiumCard score={top3[2]} rank={3} themeRGB={gender === "Homme" || gender === "H" ? "59,130,246" : "236,72,153"} height="40%" />
+              <PodiumCard score={top3[0]} rank={2} themeRGB={gender === "Homme" || gender === "H" ? "59,130,246" : "236,72,153"} height="62%" />
+              <PodiumCard score={top3[1]} rank={1} themeRGB={gender === "Homme" || gender === "H" ? "59,130,246" : "236,72,153"} height="80%" />
+              <PodiumCard score={top3[2]} rank={3} themeRGB={gender === "Homme" || gender === "H" ? "59,130,246" : "236,72,153"} height="50%" />
             </div>
           </div>
 
@@ -399,11 +399,11 @@ export default function Home() {
           <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
             <div style={{
               background: "rgba(255,255,255,0.5)", backdropFilter: "blur(10px)",
-              borderRadius: "2vh", padding: "1.5vh 3vw", border: "1px solid rgba(255,255,255,0.4)",
+              borderRadius: "2vh", padding: "1vh 3vw", border: "1px solid rgba(255,255,255,0.4)",
               display: "flex", flexDirection: "column", gap: "1vh"
             }}>
             {/* Header Row */}
-            <div style={{ display: "flex", color: "#64748b", fontSize: "clamp(1.8rem, 2.5vw, 3.2rem)", fontWeight: 800, borderBottom: "2px solid rgba(0,0,0,0.05)", paddingBottom: "1vh" }}>
+            <div style={{ display: "flex", color: "#64748b", fontSize: "clamp(1.8rem, 2.5vw, 3.2rem)", fontWeight: 800, borderBottom: "2px solid rgba(0,0,0,0.05)", paddingBottom: "0.5vh" }}>
               <div style={{ width: "15%", textAlign: "center" }}>RANG</div>
               <div style={{ flex: 1, paddingLeft: "6vw" }}>ATHLÈTE</div>
               <div style={{ width: "20%", textAlign: "right", paddingRight: "1vw" }}>SCORE</div>
@@ -412,7 +412,7 @@ export default function Home() {
             {/* Always 2 Rows */}
             {extendedList.map((score, idx) => (
               <div key={idx} style={{
-                display: "flex", alignItems: "center", padding: "1.5vh 0",
+                display: "flex", alignItems: "center", padding: "0.8vh 0",
                 borderBottom: idx === 1 ? "none" : "1px solid rgba(0,0,0,0.03)",
                 opacity: score ? 1 : 0.4
               }}>
