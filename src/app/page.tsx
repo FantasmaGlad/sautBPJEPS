@@ -16,7 +16,8 @@ export default function Home() {
   // === SPONSOR CAROUSEL STATE ===
   const [sponsors, setSponsors] = useState<any[]>([]);
   const [globalSettings, setGlobalSettings] = useState<any>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const videoRefs = useRef<(HTMLVideoElement | null)[]>([null, null]); // Double Buffering
+  const [activePlayerId, setActivePlayerId] = useState<0 | 1>(0);
   const [mediaCache, setMediaCache] = useState<Record<string, string>>({});
   const [cacheReady, setCacheReady] = useState(false);
   const fetchedUrlsRef = useRef<Set<string>>(new Set());
@@ -24,7 +25,6 @@ export default function Home() {
   // Timer state
   const [displayMode, setDisplayMode] = useState<'leaderboard' | 'carousel'>('leaderboard');
   const [currentSponsorIndex, setCurrentSponsorIndex] = useState<number>(0);
-  const [isSponsorVisible, setIsSponsorVisible] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -192,95 +192,93 @@ export default function Home() {
     };
   }, [sponsors]);
 
-  // === CAROUSEL TIMER ENGINE ===
+  // === CAROUSEL TIMER ENGINE (DOUBLE BUFFERING) ===
   // Gate : attend que le cache Blob soit prêt avant de démarrer le carrousel
   useEffect(() => {
     if (!cacheReady || sponsors.length === 0 || !globalSettings) return;
 
     // Convert to milliseconds
     const leaderboardDurationMs = (globalSettings.carousel_interval_min || 3) * 60 * 1000;
-    const breakDelayMs = (globalSettings.carousel_duration_sec || 1) * 1000;
 
     if (displayMode === 'leaderboard') {
-      // Pause et libère le décodeur vidéo matériel pour économiser les ressources TV
-      if (videoRef.current) {
-        videoRef.current.pause();
-        videoRef.current.removeAttribute('src');
-        videoRef.current.load();
-      }
+      // Pause et libère les décodeurs matériels
+      videoRefs.current.forEach(vid => {
+        if (vid) {
+          vid.pause();
+          vid.removeAttribute('src');
+          vid.load();
+        }
+      });
 
       const t = setTimeout(() => {
         setDisplayMode('carousel');
         setCurrentSponsorIndex(0);
-        setIsSponsorVisible(true);
+        setActivePlayerId(0);
       }, leaderboardDurationMs);
       return () => clearTimeout(t);
     }
 
     if (displayMode === 'carousel') {
-      if (!isSponsorVisible) {
-        // We are in the "delay between sponsors" (black screen transition)
-        const t = setTimeout(() => {
-          const nextIdx = currentSponsorIndex + 1;
-          if (nextIdx >= sponsors.length) {
-            setDisplayMode('leaderboard');
-          } else {
-            setCurrentSponsorIndex(nextIdx);
-            setIsSponsorVisible(true);
-          }
-        }, breakDelayMs);
-        return () => clearTimeout(t);
-      } else {
-        // Sponsor is currently visible
-        const sponsor = sponsors[currentSponsorIndex];
+      const activeSponsor = sponsors[currentSponsorIndex];
+      const nextIdx = currentSponsorIndex + 1;
+      const willBeLeaderboardNext = nextIdx >= sponsors.length;
 
-        // Trigger video play if it's a video
-        if (sponsor?.media_type === "video") {
-          const vidEl = videoRef.current;
-          let canPlayHandler: (() => void) | null = null;
+      const triggerNext = () => {
+        if (willBeLeaderboardNext) {
+          setDisplayMode('leaderboard');
+        } else {
+          setCurrentSponsorIndex(nextIdx);
+          setActivePlayerId(prev => (prev === 0 ? 1 : 0)); // Swap active player
+        }
+      };
 
-          if (vidEl) {
-            // Attendre que le metadata soit chargé avant de lancer play()
-            // Évite AbortError et frames noires entre sponsors vidéo
-            canPlayHandler = () => {
-              vidEl.currentTime = 0;
-              const playPromise = vidEl.play();
-              if (playPromise !== undefined) {
-                playPromise.catch(e => console.error("TV AutoPlay blocked:", e));
-              }
-            };
+      let safeTimer: NodeJS.Timeout;
 
-            if (vidEl.readyState >= 2) {
-              // Média déjà prêt (Blob en RAM), lecture immédiate
-              canPlayHandler();
-              canPlayHandler = null;
-            } else {
-              vidEl.addEventListener('canplay', canPlayHandler, { once: true });
-            }
-          }
+      if (activeSponsor?.media_type === "video") {
+        const vidEl = videoRefs.current[activePlayerId];
+        let canPlayHandler: (() => void) | null = null;
+        let endedHandler: (() => void) | null = null;
 
-          // FALLBACK TIMER (Sécurité absolue Smart TV)
-          // Si la vidéo plante et "onEnded" n'est jamais appelé, on force le passage
-          // après duration_sec + 2 secondes de marge d'erreur.
-          const fallbackDurationMs = (sponsor?.duration_sec || 10) * 1000 + 2000;
-          const safeTimer = setTimeout(() => {
-            setIsSponsorVisible(false);
-          }, fallbackDurationMs);
-
-          return () => {
-            clearTimeout(safeTimer);
-            if (vidEl && canPlayHandler) vidEl.removeEventListener('canplay', canPlayHandler);
+        if (vidEl) {
+          canPlayHandler = () => {
+             vidEl.currentTime = 0;
+             const playPromise = vidEl.play();
+             if (playPromise !== undefined) {
+               playPromise.catch(e => console.error("TV AutoPlay blocked:", e));
+             }
           };
+          endedHandler = () => triggerNext();
+
+          vidEl.addEventListener('ended', endedHandler);
+
+          if (vidEl.readyState >= 2) {
+            canPlayHandler();
+            canPlayHandler = null;
+          } else {
+            vidEl.addEventListener('canplay', canPlayHandler, { once: true });
+          }
         }
 
-        const sponsorDurationMs = (sponsor?.duration_sec || 5) * 1000;
-        const t = setTimeout(() => {
-          setIsSponsorVisible(false); // Hide image, triggering breakDelayMs next
-        }, sponsorDurationMs);
-        return () => clearTimeout(t);
+        // FALLBACK TIMER (Sécurité absolue Smart TV)
+        // Marge de +1000ms par rapport à la durée prévue
+        const fallbackDurationMs = (activeSponsor?.duration_sec || 10) * 1000 + 1000;
+        safeTimer = setTimeout(() => triggerNext(), fallbackDurationMs);
+
+        return () => {
+          clearTimeout(safeTimer);
+          if (vidEl) {
+            if (canPlayHandler) vidEl.removeEventListener('canplay', canPlayHandler);
+            if (endedHandler) vidEl.removeEventListener('ended', endedHandler);
+          }
+        };
       }
+
+      // IMAGE
+      const sponsorDurationMs = (activeSponsor?.duration_sec || 5) * 1000;
+      safeTimer = setTimeout(() => triggerNext(), sponsorDurationMs);
+      return () => clearTimeout(safeTimer);
     }
-  }, [cacheReady, displayMode, isSponsorVisible, currentSponsorIndex, sponsors, globalSettings]);
+  }, [cacheReady, displayMode, currentSponsorIndex, activePlayerId, sponsors, globalSettings]);
 
 
   const getBestScoresByGender = (gender: string) => {
@@ -327,7 +325,7 @@ export default function Home() {
         });
         setDisplayMode("leaderboard");
         setCurrentSponsorIndex(0);
-        setIsSponsorVisible(false);
+        setActivePlayerId(0);
       }
       prevTopHommeId.current = currentTop.id;
     }
@@ -342,7 +340,7 @@ export default function Home() {
         });
         setDisplayMode("leaderboard");
         setCurrentSponsorIndex(0);
-        setIsSponsorVisible(false);
+        setActivePlayerId(0);
       }
       prevTopFemmeId.current = currentTop.id;
     }
@@ -587,7 +585,7 @@ export default function Home() {
         fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif"
       }}>
 
-        {/* === Full-Screen Sponsor Overlay === */}
+        {/* === Full-Screen Sponsor Overlay (Double Buffering) === */}
         <div style={{
           position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
           zIndex: 9999, background: "#000000",
@@ -596,49 +594,47 @@ export default function Home() {
           transition: "opacity 0.8s ease-in-out",
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
-          {/* Optimisation TV : Un SEUL lecteur vidéo/image avec source dynamique Blob depuis la RAM */}
-          {(() => {
-            const activeSponsor = sponsors[currentSponsorIndex];
-            if (!activeSponsor) return null;
+          {[0, 1].map((playerId) => {
+             const isPlayerActive = activePlayerId === playerId;
+             // L'actif joue le target; l'inactif précharge le suivant.
+             const sponsorIndex = isPlayerActive 
+                ? currentSponsorIndex 
+                : (currentSponsorIndex + 1 < sponsors.length ? currentSponsorIndex + 1 : -1);
 
-            const isVideo = activeSponsor.media_type === "video";
-            const currentSrc = mediaCache[activeSponsor.media_url] || activeSponsor.media_url;
+             const sponsor = sponsorIndex >= 0 ? sponsors[sponsorIndex] : null;
+             if (!sponsor) return null; // Unmount player if no valid sponsor
 
-            return (
-              <>
-                <video
-                  ref={videoRef}
-                  src={isVideo ? currentSrc : undefined}
-                  autoPlay={isVideo}
-                  muted playsInline preload="auto"
-                  onEnded={() => {
-                    if (displayMode === 'carousel' && isSponsorVisible) setIsSponsorVisible(false);
-                  }}
-                  style={{
-                    position: "absolute",
-                    width: "100%", height: "100%", objectFit: "cover",
-                    opacity: (isVideo && isSponsorVisible) ? 1 : 0,
-                    transition: "opacity 0.5s ease",
-                    pointerEvents: "none",
-                    // Cache le lecteur si ce n'est pas une vidéo pour libérer le décodage matériel
-                    display: isVideo ? "block" : "none"
-                  }}
-                />
-                <img
-                  src={!isVideo ? currentSrc : undefined}
-                  alt="Sponsor Media"
-                  style={{
-                    position: "absolute",
-                    width: "100%", height: "100%", objectFit: "contain",
-                    opacity: (!isVideo && isSponsorVisible) ? 1 : 0,
-                    transition: "opacity 0.5s ease",
-                    pointerEvents: "none",
-                    display: !isVideo ? "block" : "none"
-                  }}
-                />
-              </>
-            );
-          })()}
+             const isVideo = sponsor.media_type === "video";
+             const currentSrc = mediaCache[sponsor.media_url] || sponsor.media_url;
+
+             return (
+               <div key={playerId} style={{
+                 position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
+                 opacity: isPlayerActive ? 1 : 0,
+                 transition: "opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
+                 transform: isPlayerActive ? "scale(1)" : "scale(1.03)",
+                 zIndex: isPlayerActive ? 10 : 5,
+               }}>
+                 <video
+                   ref={(el) => { if (el) videoRefs.current[playerId] = el; }}
+                   src={isVideo ? currentSrc : undefined}
+                   muted playsInline preload="auto"
+                   style={{
+                     width: "100%", height: "100%", objectFit: "cover",
+                     display: isVideo ? "block" : "none"
+                   }}
+                 />
+                 <img
+                   src={!isVideo ? currentSrc : undefined}
+                   alt="Sponsor Media"
+                   style={{
+                     width: "100%", height: "100%", objectFit: "contain",
+                     display: !isVideo ? "block" : "none"
+                   }}
+                 />
+               </div>
+             )
+          })}
         </div>
 
         {/* Geometric Animated Background */}

@@ -161,6 +161,7 @@ export default function AdminPage() {
 
   // Drag & Drop pour Sponsors
   const [draggedSponsorId, setDraggedSponsorId] = useState<string | null>(null);
+  const [dragOverSponsorId, setDragOverSponsorId] = useState<string | null>(null);
 
   // Global Settings Form
   const [settingBreakMin, setSettingBreakMin] = useState("3");
@@ -363,13 +364,20 @@ export default function AdminPage() {
     e.dataTransfer.effectAllowed = "move";
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent, targetId: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
+    if (dragOverSponsorId !== targetId) setDragOverSponsorId(targetId);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverSponsorId(null);
   };
 
   const handleDrop = async (e: React.DragEvent, targetId: string) => {
     e.preventDefault();
+    setDragOverSponsorId(null);
     if (!draggedSponsorId || draggedSponsorId === targetId) return;
 
     const draggedIndex = sponsors.findIndex(s => s.id === draggedSponsorId);
@@ -902,14 +910,19 @@ export default function AdminPage() {
                           key={spo.id} 
                           draggable
                           onDragStart={(e) => handleDragStart(e, spo.id)}
-                          onDragOver={handleDragOver}
+                          onDragOver={(e) => handleDragOver(e, spo.id)}
+                          onDragLeave={handleDragLeave}
                           onDrop={(e) => handleDrop(e, spo.id)}
-                          onDragEnd={() => setDraggedSponsorId(null)}
+                          onDragEnd={() => { setDraggedSponsorId(null); setDragOverSponsorId(null); }}
                           style={{ 
-                            background: idx % 2 === 0 ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.3)", 
+                            background: dragOverSponsorId === spo.id 
+                               ? "rgba(59,130,246,0.15)" 
+                               : (idx % 2 === 0 ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.3)"), 
                             cursor: "grab",
                             opacity: draggedSponsorId === spo.id ? 0.4 : 1,
-                            transition: "opacity 0.2s"
+                            transform: dragOverSponsorId === spo.id ? "scale(1.02)" : "scale(1)",
+                            boxShadow: dragOverSponsorId === spo.id ? "0 4px 12px rgba(59,130,246,0.3)" : "none",
+                            transition: "all 0.2s ease"
                           }}
                         >
                           <td style={{ padding: "0.85rem 1rem", textAlign: "center", fontWeight: 800, color: "#4a7fbd", fontSize: "1.1rem", borderRadius: "8px 0 0 8px" }}>
