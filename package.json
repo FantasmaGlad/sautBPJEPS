@@ -9,12 +9,12 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@remotion/player": "^4.0.441",
+    "@remotion/player": "^4.0.442",
     "@supabase/supabase-js": "^2.99.3",
     "next": "14.2.35",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "remotion": "^4.0.441"
+    "remotion": "^4.0.442"
   },
   "devDependencies": {
     "@types/node": "^20",

@@ -386,11 +386,23 @@ export default function AdminPage() {
 
     try {
       showStatus("Enregistrement de l'ordre...");
-      await Promise.all(
-        sortedSponsors.map(s => 
-          supabase.from("sponsors").update({ display_order: s.display_order }).eq("id", s.id)
-        )
-      );
+
+      // Tentative batch RPC (1 seul appel DB + 1 seul événement Realtime)
+      const { error: rpcError } = await supabase.rpc('reorder_sponsors', {
+        sponsor_ids: sortedSponsors.map(s => s.id),
+        new_orders: sortedSponsors.map(s => s.display_order)
+      });
+
+      if (rpcError) {
+        // Fallback : updates individuels si la RPC n'est pas encore déployée
+        console.warn("RPC reorder_sponsors indisponible, fallback updates individuels:", rpcError.message);
+        await Promise.all(
+          sortedSponsors.map(s => 
+            supabase.from("sponsors").update({ display_order: s.display_order }).eq("id", s.id)
+          )
+        );
+      }
+
       showStatus("Ordre sauvegardé !");
     } catch (err: any) {
       showStatus(`Erreur de sauvegarde: ${err.message}`);

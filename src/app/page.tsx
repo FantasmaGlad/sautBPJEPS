@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import Head from "next/head";
 import { supabase } from "@/lib/supabase";
 import { getWeightedScore } from "@/lib/ponderation";
@@ -18,6 +18,8 @@ export default function Home() {
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [mediaCache, setMediaCache] = useState<Record<string, string>>({});
+  const [cacheReady, setCacheReady] = useState(false);
+  const fetchedUrlsRef = useRef<Set<string>>(new Set());
 
   // Timer state
   const [displayMode, setDisplayMode] = useState<'leaderboard' | 'carousel'>('leaderboard');
@@ -30,9 +32,23 @@ export default function Home() {
 
     const channel = supabase
       .channel("public-db-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "participants" }, fetchData)
-      .on("postgres_changes", { event: "*", schema: "public", table: "scores" }, async (payload) => {
-        // Optimisation : Requête ciblée uniquement sur la seule ligne qui change (Au lieu de télécharger tout)
+      // === PARTICIPANTS — Handler ciblé (0 requête DB) ===
+      .on("postgres_changes", { event: "*", schema: "public", table: "participants" }, (payload: any) => {
+        if (payload.eventType === 'INSERT') {
+          setParticipants(prev => [...prev, payload.new]);
+        } else if (payload.eventType === 'UPDATE') {
+          setParticipants(prev => prev.map(p => p.id === payload.new.id ? payload.new : p));
+          // Mettre à jour les données participant embarquées dans les scores
+          setScores(prev => prev.map(s =>
+            s.participant_id === payload.new.id ? { ...s, participants: payload.new } : s
+          ));
+        } else if (payload.eventType === 'DELETE') {
+          setParticipants(prev => prev.filter(p => p.id !== payload.old.id));
+          setScores(prev => prev.filter(s => s.participant_id !== payload.old.id));
+        }
+      })
+      // === SCORES — Handler ciblé (1 requête pour le JOIN participant) ===
+      .on("postgres_changes", { event: "*", schema: "public", table: "scores" }, async (payload: any) => {
         if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
           const { data: newScore } = await supabase
             .from("scores")
@@ -52,8 +68,32 @@ export default function Home() {
           setScores(prev => prev.filter(s => s.id !== payload.old.id));
         }
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "sponsors" }, fetchSponsorsAndSettings)
-      .on("postgres_changes", { event: "*", schema: "public", table: "settings" }, fetchSponsorsAndSettings)
+      // === SPONSORS — Handler ciblé (0 requête DB, 0 refetch blob) ===
+      .on("postgres_changes", { event: "*", schema: "public", table: "sponsors" }, (payload: any) => {
+        setSponsors(prev => {
+          let next = [...prev];
+          if (payload.eventType === 'DELETE') {
+            next = next.filter(s => s.id !== payload.old.id);
+          } else {
+            // INSERT ou UPDATE
+            const idx = next.findIndex(s => s.id === payload.new.id);
+            if (idx >= 0) {
+              next[idx] = payload.new;
+            } else {
+              next.push(payload.new);
+            }
+            // Garder uniquement les actifs, triés par ordre d'affichage
+            next = next.filter(s => s.is_active).sort((a, b) => a.display_order - b.display_order);
+          }
+          return next;
+        });
+      })
+      // === SETTINGS — Handler ciblé (0 requête DB) ===
+      .on("postgres_changes", { event: "*", schema: "public", table: "settings" }, (payload: any) => {
+        if (payload.eventType !== 'DELETE' && payload.new) {
+          setGlobalSettings(payload.new);
+        }
+      })
       .subscribe();
 
     return () => {
@@ -71,6 +111,7 @@ export default function Home() {
     setLoading(false);
   };
 
+  // Chargement initial uniquement — les updates passent par les handlers Realtime ciblés
   const fetchSponsorsAndSettings = async () => {
     const [spRes, setRes] = await Promise.all([
       supabase.from("sponsors").select("*").eq("is_active", true).order("display_order", { ascending: true }),
@@ -81,37 +122,93 @@ export default function Home() {
     if (setRes.data) setGlobalSettings(setRes.data);
   };
 
-  // Préchargement des Blobs en mémoire (RAM) pour zéro consommation réseau et compatibilité max
+  // === PRÉCHARGEMENT INTELLIGENT DES BLOBS EN RAM ===
+  // • Charge uniquement les nouvelles URLs (pas de re-fetch)
+  // • Attend la fin de TOUS les chargements avant d'autoriser le carrousel (cacheReady)
+  // • Libère les Blob URLs devenues orphelines (sponsor supprimé/désactivé)
+  // • Gère l'annulation proprement si les sponsors changent pendant le chargement
   useEffect(() => {
-    sponsors.forEach((sponsor) => {
-      setMediaCache((prev) => {
-        if (prev[sponsor.media_url]) return prev;
+    if (sponsors.length === 0) { setCacheReady(true); return; }
 
-        fetch(sponsor.media_url)
-          .then((res) => res.blob())
-          .then((blob) => {
-            const objectUrl = URL.createObjectURL(blob);
-            setMediaCache((current) => ({ ...current, [sponsor.media_url]: objectUrl }));
-          })
-          .catch((err) => {
-            console.error("Impossible de fetch la vidéo TV, fallback vers URL directe", err);
-            setMediaCache((current) => ({ ...current, [sponsor.media_url]: sponsor.media_url }));
-          });
+    const currentUrls = new Set(sponsors.map(s => s.media_url));
 
-        return { ...prev, [sponsor.media_url]: "loading" };
-      });
+    // Nettoyage : révoquer les Blob URLs de sponsors qui ne sont plus actifs (fuite mémoire)
+    setMediaCache(prev => {
+      const next = { ...prev };
+      let changed = false;
+      for (const url of Object.keys(next)) {
+        if (!currentUrls.has(url) && next[url] && next[url].startsWith('blob:')) {
+          URL.revokeObjectURL(next[url]);
+          delete next[url];
+          fetchedUrlsRef.current.delete(url);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
     });
+
+    // Identifier les URLs pas encore chargées
+    const urlsToFetch = sponsors
+      .map(s => s.media_url)
+      .filter(url => !fetchedUrlsRef.current.has(url));
+
+    if (urlsToFetch.length === 0) {
+      setCacheReady(true);
+      return;
+    }
+
+    // Marquer comme en cours de chargement pour éviter les doublons
+    urlsToFetch.forEach(url => fetchedUrlsRef.current.add(url));
+    let cancelled = false;
+
+    Promise.all(
+      urlsToFetch.map(url =>
+        fetch(url)
+          .then(res => res.blob())
+          .then(blob => ({ url, blobUrl: URL.createObjectURL(blob) }))
+          .catch(err => {
+            console.error("Impossible de fetch le média TV, fallback vers URL directe", err);
+            return { url, blobUrl: url };
+          })
+      )
+    ).then(results => {
+      if (cancelled) {
+        // Si cet effet a été nettoyé, révoquer les blobs inutilisés
+        results.forEach(r => { if (r.blobUrl.startsWith('blob:')) URL.revokeObjectURL(r.blobUrl); });
+        return;
+      }
+      setMediaCache(prev => {
+        const next = { ...prev };
+        results.forEach(r => { next[r.url] = r.blobUrl; });
+        return next;
+      });
+      setCacheReady(true);
+    });
+
+    return () => {
+      cancelled = true;
+      // Permettre le re-chargement si les sponsors changent pendant le fetch
+      urlsToFetch.forEach(url => fetchedUrlsRef.current.delete(url));
+    };
   }, [sponsors]);
 
   // === CAROUSEL TIMER ENGINE ===
+  // Gate : attend que le cache Blob soit prêt avant de démarrer le carrousel
   useEffect(() => {
-    if (sponsors.length === 0 || !globalSettings) return;
+    if (!cacheReady || sponsors.length === 0 || !globalSettings) return;
 
     // Convert to milliseconds
     const leaderboardDurationMs = (globalSettings.carousel_interval_min || 3) * 60 * 1000;
     const breakDelayMs = (globalSettings.carousel_duration_sec || 1) * 1000;
 
     if (displayMode === 'leaderboard') {
+      // Pause et libère le décodeur vidéo matériel pour économiser les ressources TV
+      if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.removeAttribute('src');
+        videoRef.current.load();
+      }
+
       const t = setTimeout(() => {
         setDisplayMode('carousel');
         setCurrentSponsorIndex(0);
@@ -139,12 +236,26 @@ export default function Home() {
 
         // Trigger video play if it's a video
         if (sponsor?.media_type === "video") {
-          const vidInfo = videoRef.current;
-          if (vidInfo) {
-            vidInfo.currentTime = 0;
-            const playPromise = vidInfo.play();
-            if (playPromise !== undefined) {
-              playPromise.catch(e => console.error("TV AutoPlay blocked:", e));
+          const vidEl = videoRef.current;
+          let canPlayHandler: (() => void) | null = null;
+
+          if (vidEl) {
+            // Attendre que le metadata soit chargé avant de lancer play()
+            // Évite AbortError et frames noires entre sponsors vidéo
+            canPlayHandler = () => {
+              vidEl.currentTime = 0;
+              const playPromise = vidEl.play();
+              if (playPromise !== undefined) {
+                playPromise.catch(e => console.error("TV AutoPlay blocked:", e));
+              }
+            };
+
+            if (vidEl.readyState >= 2) {
+              // Média déjà prêt (Blob en RAM), lecture immédiate
+              canPlayHandler();
+              canPlayHandler = null;
+            } else {
+              vidEl.addEventListener('canplay', canPlayHandler, { once: true });
             }
           }
 
@@ -156,7 +267,10 @@ export default function Home() {
             setIsSponsorVisible(false);
           }, fallbackDurationMs);
 
-          return () => clearTimeout(safeTimer);
+          return () => {
+            clearTimeout(safeTimer);
+            if (vidEl && canPlayHandler) vidEl.removeEventListener('canplay', canPlayHandler);
+          };
         }
 
         const sponsorDurationMs = (sponsor?.duration_sec || 5) * 1000;
@@ -166,7 +280,7 @@ export default function Home() {
         return () => clearTimeout(t);
       }
     }
-  }, [displayMode, isSponsorVisible, currentSponsorIndex, sponsors, globalSettings]);
+  }, [cacheReady, displayMode, isSponsorVisible, currentSponsorIndex, sponsors, globalSettings]);
 
 
   const getBestScoresByGender = (gender: string) => {
@@ -488,9 +602,7 @@ export default function Home() {
             if (!activeSponsor) return null;
 
             const isVideo = activeSponsor.media_type === "video";
-            const currentSrc = mediaCache[activeSponsor.media_url] && mediaCache[activeSponsor.media_url] !== "loading"
-              ? mediaCache[activeSponsor.media_url]
-              : activeSponsor.media_url;
+            const currentSrc = mediaCache[activeSponsor.media_url] || activeSponsor.media_url;
 
             return (
               <>
